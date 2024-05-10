@@ -12,6 +12,8 @@ click = "^8.1.7"
 python-dotenv = "^1.0.1"
 google-api-python-client = "^2.128.0"
 google-cloud-storage = "^2.16.0"
+certifi = "^2024.2.2"
+tqdm = "^4.66.4"
 
 
 [build-system]
@@ -19,4 +21,4 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-oon_utilities = "oon_utilities.scratchpad:main"
+image-fetcher = "oon_utilities.image_fetcher:main"
