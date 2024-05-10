@@ -27,15 +27,11 @@ def quick_image_search(
     """
     Performs a Google Custom Search for images based on the provided search term.
 
-    Args:
-        search_term (str): The term to search for.
-        number_of_images (int, optional): The number of images to return. Defaults to 5.
-        api_key (str, optional): The API key for Google Custom Search. Defaults to GOOGLE_CUSTOM_SEARCH_API_KEY.
-        csi_id (str, optional): The Custom Search Engine ID. Defaults to GOOGLE_CUSTOM_SEARCH_ENGINE_ID.
-        **kwargs: Additional keyword arguments to pass to the Google Custom Search.
-
-    Returns:
-        list[str]: A list of URLs for the found images.
+    :param search_term:  The term to search for.
+    :param number_of_images:  The number of images to return.
+    :param api_key:  The Google API key to use for the search.
+    :param csi_id:  The Custom Search Engine ID to use for the search.
+    :return:  A list of URLs to the images found.
     """
     service = build("customsearch", "v1", developerKey=api_key)
     results = (
@@ -49,6 +45,14 @@ def quick_image_search(
 
 
 def download_and_store_image(image_url: str, destination_path: Path, **kwargs) -> bool:
+    """
+    Downloads an image from a URL and stores it at the provided destination path.
+
+    :param image_url:  The URL of the image to download.
+    :param destination_path:  The path to store the downloaded image.
+    :param kwargs:  Additional keyword arguments to pass to the requests.get function.
+    :return:  True if the image was successfully downloaded and stored, False otherwise.
+    """
     response = requests.get(image_url, **kwargs)
     if response.status_code == 200:
         with open(destination_path, "wb") as f:
