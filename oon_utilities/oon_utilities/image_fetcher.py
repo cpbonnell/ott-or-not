@@ -98,9 +98,14 @@ def main(download_path: Path):
             destination_path = (
                 destination_directory / f"{index}-{image_remote_path.suffix}"
             )
-            try:
-                download_and_store_image(image_url, destination_path)
-            except SSLError as e:
-                print(
-                    f"SSL Error encountered fetching image {image_remote_path} from host {url_parts.host}."
+            for attempt in range(3):
+                verify = (
+                    False if attempt > 0 and url_parts.host in TRUST_ANYWAY else True
                 )
+
+                try:
+                    download_and_store_image(image_url, destination_path, verify=verify)
+                except SSLError as e:
+                    print(
+                        f"SSL Error encountered from host {url_parts.host} (attempt {attempt})."
+                    )
