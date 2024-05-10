@@ -98,7 +98,8 @@ def main(download_path: Path):
             destination_path = (
                 destination_directory / f"{index}-{image_remote_path.suffix}"
             )
-            for attempt in range(3):
+            for attempt in range(2):
+                # If we've already tried once, and the host is in the TRUST_ANYWAY list, we'll skip verification
                 verify = (
                     False if attempt > 0 and url_parts.host in TRUST_ANYWAY else True
                 )
