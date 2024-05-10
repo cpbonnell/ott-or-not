@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "oon-utilities"
+version = "0.1.0"
+description = ""
+authors = ["christianbonnell <christian.bonnell@gmail.com>"]
+readme = "README.md"
+packages = [{include = "oon_utilities"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+click = "^8.1.7"
+python-dotenv = "^1.0.1"
+google-api-python-client = "^2.128.0"
+google-cloud-storage = "^2.16.0"
+certifi = "^2024.2.2"
+tqdm = "^4.66.4"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+image-fetcher = "oon_utilities.image_fetcher:main"
