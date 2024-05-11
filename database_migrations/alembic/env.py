@@ -1,14 +1,11 @@
 import logging
+import os
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, create_engine
-from sqlalchemy import pool
-from sqlalchemy import URL
-import os
-
 from alembic import context
-
-from dotenv import load_dotenv, find_dotenv
+from dotenv import find_dotenv, load_dotenv
+from sqlalchemy import URL
+from sqlalchemy import create_engine
 
 env_filename = find_dotenv()
 print(f"Loading environment variables from: {env_filename}")
