@@ -72,7 +72,7 @@ class TrainingImageSearch:
 @click.option(
     "--download-path",
     type=click.Path(exists=True),
-    default=Path("~/Downloads/temporary/").expanduser(),
+    default=Path("/mnt/a/data/ott-or-not").expanduser(),
 )
 def main(download_path: Path):
 
@@ -82,8 +82,8 @@ def main(download_path: Path):
 
     # Define the search terms
     searches = [
-        TrainingImageSearch("North American River Otter", "otter", 10),
-        TrainingImageSearch("Beaver", "beaver", 10),
+        TrainingImageSearch("North American River Otter", "north_american_river_otter_100", 100),
+        TrainingImageSearch("Sea Otter", "sea_otter_100", 100),
     ]
 
     for search in searches:
