@@ -92,8 +92,8 @@ def main(download_path: Path):
 
     # Define the search terms
     searches = [
-        TrainingImageSearch("North American River Otter", "north_american_river_otter_12", 12),
-        TrainingImageSearch("Sea Otter", "sea_otter_12", 12),
+        TrainingImageSearch("North American River Otter", "north_american_river_otter_12", 100),
+        TrainingImageSearch("Sea Otter", "sea_otter_12", 100),
     ]
 
     for search in searches:
