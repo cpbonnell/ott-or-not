@@ -7,6 +7,7 @@ from tqdm import tqdm
 from urllib3.util import parse_url, Url
 from googleapiclient.discovery import build
 from requests.exceptions import SSLError
+from requests.exceptions import ConnectionError, Timeout
 
 from oon_utilities.configuration import (
     GOOGLE_CUSTOM_SEARCH_API_KEY,
@@ -70,7 +71,7 @@ def download_and_store_image(image_url: str, destination_path: Path, skip_existi
 
     try:
         response = requests.get(image_url, timeout=14, **kwargs)
-    except requests.exceptions.ConnectTimeout as e:
+    except (ConnectionError, Timeout) as e:
         logging.error(f"Timeout error whie fetching image {image_url}")
         return False
 
@@ -102,8 +103,9 @@ def main(download_path: Path):
 
     # Define the search terms
     searches = [
-        TrainingImageSearch("North American River Otter", "north_american_river_otter_12", 100),
-        TrainingImageSearch("Sea Otter", "sea_otter_12", 100),
+        TrainingImageSearch("North American River Otter", "north_american_river_otter_100", 100),
+        TrainingImageSearch("Sea Otter", "sea_otter_100", 100),
+        TrainingImageSearch("Asian Small Clawed Otter", "asian_small_clawed_otter", 100)
     ]
 
     for search in searches:
