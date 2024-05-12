@@ -1,11 +1,13 @@
-import click
+import logging
 from dataclasses import dataclass
 from pathlib import Path, PurePath
+
+import click
 import requests
-from tqdm import tqdm
-from urllib3.util import parse_url, Url
 from googleapiclient.discovery import build
-from requests.exceptions import SSLError
+from requests.exceptions import ConnectionError, SSLError, Timeout
+from tqdm import tqdm
+from urllib3.util import parse_url
 
 from oon_utilities.configuration import (
     GOOGLE_CUSTOM_SEARCH_API_KEY,
@@ -19,7 +21,7 @@ TRUST_ANYWAY = [
 
 def quick_image_search(
     search_term: str,
-    number_of_images: int = 5,
+    number_of_images_desired: int = 5,
     api_key: str = GOOGLE_CUSTOM_SEARCH_API_KEY,
     csi_id: str = GOOGLE_CUSTOM_SEARCH_ENGINE_ID,
     **kwargs,
@@ -34,17 +36,34 @@ def quick_image_search(
     :return:  A list of URLs to the images found.
     """
     service = build("customsearch", "v1", developerKey=api_key)
-    results = (
-        service.cse()
-        .list(
-            q=search_term, cx=csi_id, searchType="image", num=number_of_images, **kwargs
+    results = []
+    query_index = 0
+
+    while len(results) < number_of_images_desired:
+        expected_results_required = number_of_images_desired - len(results)
+        batch_size = expected_results_required if expected_results_required < 10 else 10
+
+        query_result = (
+            service.cse()
+            .list(
+                q=search_term,
+                cx=csi_id,
+                searchType="image",
+                num=batch_size,
+                start=query_index,
+                **kwargs,
+            )
+            .execute()
         )
-        .execute()
-    )
-    return [item["link"] for item in results["items"]]
+        results.extend([item["link"] for item in query_result["items"]])
+        query_index += batch_size
+
+    return results
 
 
-def download_and_store_image(image_url: str, destination_path: Path, **kwargs) -> bool:
+def download_and_store_image(
+    image_url: str, destination_path: Path, skip_existing_images: bool = True, **kwargs
+) -> bool:
     """
     Downloads an image from a URL and stores it at the provided destination path.
 
@@ -53,7 +72,16 @@ def download_and_store_image(image_url: str, destination_path: Path, **kwargs) -
     :param kwargs:  Additional keyword arguments to pass to the requests.get function.
     :return:  True if the image was successfully downloaded and stored, False otherwise.
     """
-    response = requests.get(image_url, **kwargs)
+    # If the file already exists, skip this image to avoid fetching it from the internet again.
+    if skip_existing_images and destination_path.exists():
+        return True
+
+    try:
+        response = requests.get(image_url, timeout=14, **kwargs)
+    except (ConnectionError, Timeout) as e:
+        logging.error(f"Timeout error whie fetching image {image_url}")
+        return False
+
     if response.status_code == 200:
         with open(destination_path, "wb") as f:
             f.write(response.content)
@@ -72,7 +100,7 @@ class TrainingImageSearch:
 @click.option(
     "--download-path",
     type=click.Path(exists=True),
-    default=Path("~/Downloads/temporary/").expanduser(),
+    default=Path("/mnt/a/data/ott-or-not").expanduser(),
 )
 def main(download_path: Path):
 
@@ -82,8 +110,13 @@ def main(download_path: Path):
 
     # Define the search terms
     searches = [
-        TrainingImageSearch("North American River Otter", "otter", 10),
-        TrainingImageSearch("Beaver", "beaver", 10),
+        TrainingImageSearch(
+            "North American River Otter", "north_american_river_otter_100", 100
+        ),
+        TrainingImageSearch("Sea Otter", "sea_otter_100", 100),
+        TrainingImageSearch(
+            "Asian Small Clawed Otter", "asian_small_clawed_otter", 100
+        ),
     ]
 
     for search in searches:
@@ -99,10 +132,12 @@ def main(download_path: Path):
         for index, image_url in tqdm(enumerate(image_urls)):
             url_parts = parse_url(image_url)
             image_remote_path = PurePath(url_parts.path)
-            destination_path = (
-                destination_directory / f"{index}-{image_remote_path.name}"
-            )
+            destination_path = destination_directory / image_remote_path.name
             for attempt in range(2):
+                # Right now, we will only give 2nd changes for sites in the
+                if attempt == 2 and url_parts.host not in TRUST_ANYWAY:
+                    break
+
                 # If we've already tried once, and the host is in the TRUST_ANYWAY list, we'll skip verification
                 verify = (
                     False if attempt > 0 and url_parts.host in TRUST_ANYWAY else True
@@ -111,6 +146,6 @@ def main(download_path: Path):
                 try:
                     download_and_store_image(image_url, destination_path, verify=verify)
                 except SSLError as e:
-                    print(
+                    logging.error(
                         f"SSL Error encountered from host {url_parts.host} (attempt {attempt})."
                     )
