@@ -1,13 +1,13 @@
-import click
 import logging
 from dataclasses import dataclass
 from pathlib import Path, PurePath
+
+import click
 import requests
-from tqdm import tqdm
-from urllib3.util import parse_url, Url
 from googleapiclient.discovery import build
-from requests.exceptions import SSLError
-from requests.exceptions import ConnectionError, Timeout
+from requests.exceptions import ConnectionError, SSLError, Timeout
+from tqdm import tqdm
+from urllib3.util import parse_url
 
 from oon_utilities.configuration import (
     GOOGLE_CUSTOM_SEARCH_API_KEY,
@@ -46,7 +46,12 @@ def quick_image_search(
         query_result = (
             service.cse()
             .list(
-                q=search_term, cx=csi_id, searchType="image", num=batch_size, start=query_index, **kwargs
+                q=search_term,
+                cx=csi_id,
+                searchType="image",
+                num=batch_size,
+                start=query_index,
+                **kwargs,
             )
             .execute()
         )
@@ -56,7 +61,9 @@ def quick_image_search(
     return results
 
 
-def download_and_store_image(image_url: str, destination_path: Path, skip_existing_images: bool = True, **kwargs) -> bool:
+def download_and_store_image(
+    image_url: str, destination_path: Path, skip_existing_images: bool = True, **kwargs
+) -> bool:
     """
     Downloads an image from a URL and stores it at the provided destination path.
 
@@ -103,9 +110,13 @@ def main(download_path: Path):
 
     # Define the search terms
     searches = [
-        TrainingImageSearch("North American River Otter", "north_american_river_otter_100", 100),
+        TrainingImageSearch(
+            "North American River Otter", "north_american_river_otter_100", 100
+        ),
         TrainingImageSearch("Sea Otter", "sea_otter_100", 100),
-        TrainingImageSearch("Asian Small Clawed Otter", "asian_small_clawed_otter", 100)
+        TrainingImageSearch(
+            "Asian Small Clawed Otter", "asian_small_clawed_otter", 100
+        ),
     ]
 
     for search in searches:
@@ -121,11 +132,9 @@ def main(download_path: Path):
         for index, image_url in tqdm(enumerate(image_urls)):
             url_parts = parse_url(image_url)
             image_remote_path = PurePath(url_parts.path)
-            destination_path = (
-                destination_directory / image_remote_path.name
-            )
+            destination_path = destination_directory / image_remote_path.name
             for attempt in range(2):
-                # Right now, we will only give 2nd changes for sites in the 
+                # Right now, we will only give 2nd changes for sites in the
                 if attempt == 2 and url_parts.host not in TRUST_ANYWAY:
                     break
 
