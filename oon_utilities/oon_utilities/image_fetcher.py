@@ -1,4 +1,5 @@
 import click
+import logging
 from dataclasses import dataclass
 from pathlib import Path, PurePath
 import requests
@@ -70,7 +71,7 @@ def download_and_store_image(image_url: str, destination_path: Path, skip_existi
     try:
         response = requests.get(image_url, timeout=14, **kwargs)
     except requests.exceptions.ConnectTimeout as e:
-        print(f"Timeout error whie fetching image {image_url}")
+        logging.error(f"Timeout error whie fetching image {image_url}")
         return False
 
     if response.status_code == 200:
@@ -134,6 +135,6 @@ def main(download_path: Path):
                 try:
                     download_and_store_image(image_url, destination_path, verify=verify)
                 except SSLError as e:
-                    print(
+                    logging.error(
                         f"SSL Error encountered from host {url_parts.host} (attempt {attempt})."
                     )
