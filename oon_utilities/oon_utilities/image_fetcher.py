@@ -119,7 +119,7 @@ def main(download_path: Path):
             url_parts = parse_url(image_url)
             image_remote_path = PurePath(url_parts.path)
             destination_path = (
-                destination_directory / f"{index}-{image_remote_path.name}"
+                destination_directory / image_remote_path.name
             )
             for attempt in range(2):
                 # If we've already tried once, and the host is in the TRUST_ANYWAY list, we'll skip verification
