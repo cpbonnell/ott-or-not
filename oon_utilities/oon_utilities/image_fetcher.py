@@ -122,6 +122,10 @@ def main(download_path: Path):
                 destination_directory / image_remote_path.name
             )
             for attempt in range(2):
+                # Right now, we will only give 2nd changes for sites in the 
+                if attempt == 2 and url_parts.host not in TRUST_ANYWAY:
+                    break
+
                 # If we've already tried once, and the host is in the TRUST_ANYWAY list, we'll skip verification
                 verify = (
                     False if attempt > 0 and url_parts.host in TRUST_ANYWAY else True
