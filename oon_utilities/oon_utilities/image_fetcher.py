@@ -54,7 +54,7 @@ def quick_image_search(
     return results
 
 
-def download_and_store_image(image_url: str, destination_path: Path, **kwargs) -> bool:
+def download_and_store_image(image_url: str, destination_path: Path, skip_existing_images: bool = True, **kwargs) -> bool:
     """
     Downloads an image from a URL and stores it at the provided destination path.
 
@@ -63,10 +63,15 @@ def download_and_store_image(image_url: str, destination_path: Path, **kwargs) -
     :param kwargs:  Additional keyword arguments to pass to the requests.get function.
     :return:  True if the image was successfully downloaded and stored, False otherwise.
     """
+    # If the file already exists, skip this image to avoid fetching it from the internet again.
+    if skip_existing_images and destination_path.exists():
+        return True
+
     try:
         response = requests.get(image_url, timeout=14, **kwargs)
     except requests.exceptions.ConnectTimeout as e:
         print(f"Timeout error whie fetching image {image_url}")
+        return False
 
     if response.status_code == 200:
         with open(destination_path, "wb") as f:
