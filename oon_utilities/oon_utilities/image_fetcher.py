@@ -19,7 +19,7 @@ TRUST_ANYWAY = [
 
 def quick_image_search(
     search_term: str,
-    number_of_images: int = 5,
+    number_of_images_desired: int = 5,
     api_key: str = GOOGLE_CUSTOM_SEARCH_API_KEY,
     csi_id: str = GOOGLE_CUSTOM_SEARCH_ENGINE_ID,
     **kwargs,
@@ -34,14 +34,24 @@ def quick_image_search(
     :return:  A list of URLs to the images found.
     """
     service = build("customsearch", "v1", developerKey=api_key)
-    results = (
-        service.cse()
-        .list(
-            q=search_term, cx=csi_id, searchType="image", num=number_of_images, **kwargs
+    results = []
+    query_index = 0
+
+    while len(results) < number_of_images_desired:
+        expected_results_required = number_of_images_desired - len(results)
+        batch_size = expected_results_required if expected_results_required < 10 else 10
+
+        query_result = (
+            service.cse()
+            .list(
+                q=search_term, cx=csi_id, searchType="image", num=batch_size, start=query_index, **kwargs
+            )
+            .execute()
         )
-        .execute()
-    )
-    return [item["link"] for item in results["items"]]
+        results.extend([item["link"] for item in query_result["items"]])
+        query_index += batch_size
+
+    return results
 
 
 def download_and_store_image(image_url: str, destination_path: Path, **kwargs) -> bool:
@@ -82,8 +92,8 @@ def main(download_path: Path):
 
     # Define the search terms
     searches = [
-        TrainingImageSearch("North American River Otter", "north_american_river_otter_100", 100),
-        TrainingImageSearch("Sea Otter", "sea_otter_100", 100),
+        TrainingImageSearch("North American River Otter", "north_american_river_otter_12", 12),
+        TrainingImageSearch("Sea Otter", "sea_otter_12", 12),
     ]
 
     for search in searches:
