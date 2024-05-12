@@ -63,7 +63,11 @@ def download_and_store_image(image_url: str, destination_path: Path, **kwargs) -
     :param kwargs:  Additional keyword arguments to pass to the requests.get function.
     :return:  True if the image was successfully downloaded and stored, False otherwise.
     """
-    response = requests.get(image_url, **kwargs)
+    try:
+        response = requests.get(image_url, timeout=14, **kwargs)
+    except requests.exceptions.ConnectTimeout as e:
+        print(f"Timeout error whie fetching image {image_url}")
+
     if response.status_code == 200:
         with open(destination_path, "wb") as f:
             f.write(response.content)
