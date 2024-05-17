@@ -1,6 +1,8 @@
 from pathlib import Path
 from dataclasses import dataclass
 from pprint import pprint
+from itertools import batched
+from typing import Iterable
 
 from PIL import Image
 
@@ -57,6 +59,9 @@ class OtterScorer:
         transforms directly produce a tensor. But this function converts the tensor back to an image,
         also removing the scaling and normalization applied by the transforms in order to make the
         image more human-interpretable.
+
+        :param item:  An image, a path to an image file, or an OtterPredictionResult object.
+        :return:  The image after applying the preprocessing transforms.
         """
         match item:
             case Image.Image as image_class:
@@ -88,6 +93,9 @@ class OtterScorer:
 
         Will raise a RuntimError if the image is not convertable to a tensor that
         can be scored by a ResNet model.
+
+        :param path:  The path to the image file.
+        :return:  An OtterPredictionResult object with the prediction results.
         """
 
         if isinstance(path, str):
@@ -107,27 +115,22 @@ class OtterScorer:
             file_path=path,
         )
 
-    def score_images_in_directory(
-        self, directory: Path | str
+    def score_batch_of_images(
+        self, image_files: Iterable[Path | str]
     ) -> list[OtterPredictionResult]:
         """
-        Score all images in a directory and return the results as a list.
+        Score a batch of images located at the given filepaths.
 
-        Scans the directory recursively for images and scores each one. Returns a list of
-        OtterPredictionResult objects, one for each image found. This is more efficent than
-        calling score_image_at_path() on each image individually, because if can process the
-        images as a "batch" on the GPU.
+        Images will be processed in parallel on the GPU. The results will be returned as a list
+        of OtterPredictionResult objects, one for each image in the batch.
+
+        Images that cannot be converted to tensors will be skipped and a warning will be
+        printed. This means that the length of the returned list may be less than the length
+        of the input.
+
+        :param image_files:  An iterable of paths to image files.
+        :return:  A list of OtterPredictionResult objects with the prediction results.
         """
-        if isinstance(directory, str):
-            directory = Path(directory)
-
-        # Find all images in the directory
-        image_files = (
-            list(directory.rglob("*.jpg"))
-            + list(directory.rglob("*.jpeg"))
-            + list(directory.rglob("*.png"))
-        )
-
         # Load, transform, and stack image files together into a batch
         imgs = list()
         results_files = list()
@@ -153,8 +156,8 @@ class OtterScorer:
         probabilities = predictions.softmax(dim=1)
 
         # Package and return results
-        results = []
-        for i, (probability, file) in enumerate(zip(probabilities, results_files)):
+        results = list()
+        for probability, file in zip(probabilities, results_files):
             category_id = probability.argmax().item()
             results.append(
                 OtterPredictionResult(
@@ -164,5 +167,37 @@ class OtterScorer:
                     file_path=file,
                 )
             )
+
+        return results
+
+    def score_images_in_directory(
+        self, directory: Path | str, batch_size: int = 64
+    ) -> list[OtterPredictionResult]:
+        """
+        Score all images in a directory and return the results as a list.
+
+        Scans the directory recursively for images and scores each one. Returns a list of
+        OtterPredictionResult objects, one for each image found. This is more efficent than
+        calling score_image_at_path() on each image individually, because if can process the
+        images as a "batch" on the GPU.
+
+        :param directory:  The path to the directory containing the images.
+        :param batch_size:  The maximum number of images to process in a single batch.
+        :return:  A list of OtterPredictionResult objects with the prediction results.
+        """
+        if isinstance(directory, str):
+            directory = Path(directory)
+
+        # Find all images in the directory
+        image_files = (
+            list(directory.rglob("*.jpg"))
+            + list(directory.rglob("*.jpeg"))
+            + list(directory.rglob("*.png"))
+        )
+
+        # Score the images in batches
+        results = list()
+        for batch_files in batched(image_files, batch_size):
+            results.extend(self.score_batch_of_images(batch_files))
 
         return results
