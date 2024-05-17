@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pprint import pprint
 from itertools import batched
 from typing import Iterable
+from enum import Enum
 
 from PIL import Image
 
@@ -12,8 +13,11 @@ from torchvision.io import read_image
 from torchvision.transforms import ToPILImage
 from torchvision.models.resnet import ResNet
 from torchvision.models import WeightsEnum
+from torchvision.models import resnet18, ResNet18_Weights
 from torchvision.models import resnet34, ResNet34_Weights
 from torchvision.models import resnet50, ResNet50_Weights
+from torchvision.models import resnet101, ResNet101_Weights
+from torchvision.models import resnet152, ResNet152_Weights
 
 CPU_DEVICE = torch.device("cpu")
 
@@ -30,15 +34,45 @@ class OtterPredictionResult:
     file_path: Path = None
 
 
+class ResNetVersions(Enum):
+    v18 = "ResNet-18"
+    v34 = "ResNet-34"
+    v50 = "ResNet-50"
+    v101 = "ResNet-101"
+    v152 = "ResNet-152"
+
+
 class OtterScorer:
-    def __init__(self, device: torch.device = CPU_DEVICE) -> None:
+    def __init__(
+        self,
+        resnet_version: ResNetVersions = ResNetVersions.v50,
+        device: torch.device = CPU_DEVICE,
+    ) -> None:
 
         self.device = device
 
+        # Select the model constructor and weights based on the requested version
+        match resnet_version:
+            case ResNetVersions.v18:
+                model_constructor = resnet18
+                model_weights = ResNet18_Weights.DEFAULT
+            case ResNetVersions.v34:
+                model_constructor = resnet34
+                model_weights = ResNet34_Weights.DEFAULT
+            case ResNetVersions.v50:
+                model_constructor = resnet50
+                model_weights = ResNet50_Weights.DEFAULT
+            case ResNetVersions.v101:
+                model_constructor = resnet101
+                model_weights = ResNet101_Weights.DEFAULT
+            case ResNetVersions.v152:
+                model_constructor = resnet152
+                model_weights = ResNet152_Weights.DEFAULT
+
         # Instantiate the model with default weights, move it to specified
         # compute device (hopefully a GPU) and set it to eval mode
-        self.weights = ResNet34_Weights.DEFAULT
-        self.model = resnet34(weights=self.weights)
+        self.weights: WeightsEnum = model_weights
+        self.model: ResNet = model_constructor(weights=self.weights)
         self.model.to(self.device)
         self.model.eval()
 
