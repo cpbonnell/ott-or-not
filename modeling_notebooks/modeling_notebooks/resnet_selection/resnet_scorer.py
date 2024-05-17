@@ -1,9 +1,9 @@
 from pathlib import Path
 from dataclasses import dataclass
-from pprint import pprint
 from itertools import batched
 from typing import Iterable
 from enum import Enum
+import logging
 
 from PIL import Image
 
@@ -173,7 +173,9 @@ class OtterScorer:
                 img = read_image(file)
                 img = self.preprocess(img)
             except:
-                print(f"Warning: Could not process file {file} into an image tensor.")
+                logging.warning(
+                    f"Warning: Could not process file {file} into an image tensor."
+                )
                 continue
 
             imgs.append(img)
