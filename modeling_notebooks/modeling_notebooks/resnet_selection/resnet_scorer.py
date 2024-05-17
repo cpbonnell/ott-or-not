@@ -13,6 +13,8 @@ from torchvision.models import WeightsEnum
 from torchvision.models import resnet34, ResNet34_Weights
 from torchvision.models import resnet50, ResNet50_Weights
 
+CPU_DEVICE = torch.device("cpu")
+
 
 @dataclass(frozen=True)
 class OtterPredictionResult:
@@ -27,11 +29,15 @@ class OtterPredictionResult:
 
 
 class OtterScorer:
-    def __init__(self) -> None:
+    def __init__(self, device: torch.device = CPU_DEVICE) -> None:
 
-        # Instantiate the model with default weights and set it to eval mode
+        self.device = device
+
+        # Instantiate the model with default weights, move it to specified
+        # compute device (hopefully a GPU) and set it to eval mode
         self.weights = ResNet34_Weights.DEFAULT
         self.model = resnet34(weights=self.weights)
+        self.model.to(self.device)
         self.model.eval()
 
         # Store the preprocess transforms for later use
@@ -77,13 +83,19 @@ class OtterScorer:
         return ToPILImage()(tensor)
 
     def score_image_at_path(self, path: Path | str) -> OtterPredictionResult:
+        """
+        Score the image located at the given filepath.
+
+        Will raise a RuntimError if the image is not convertable to a tensor that
+        can be scored by a ResNet model.
+        """
 
         if isinstance(path, str):
             path = Path(path)
 
         # Obtain a prediction
         img = read_image(path.expanduser())
-        batch = self.preprocess(img).unsqueeze(0)
+        batch = self.preprocess(img).unsqueeze(0).to(self.device)
         prediction = self.model(batch).squeeze(0).softmax(0)
 
         # Package and return results
@@ -130,7 +142,11 @@ class OtterScorer:
             imgs.append(img)
             results_files.append(file)
 
-        batch = torch.stack(imgs)
+        # Stop early if we don't have any images to score
+        if not imgs:
+            return []
+
+        batch = torch.stack(imgs).to(self.device)
 
         # Run the batch through the model
         predictions = self.model(batch)
