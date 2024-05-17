@@ -35,11 +35,11 @@ class OtterPredictionResult:
 
 
 class ResNetVersions(Enum):
-    v18 = "ResNet-18"
-    v34 = "ResNet-34"
-    v50 = "ResNet-50"
-    v101 = "ResNet-101"
-    v152 = "ResNet-152"
+    v18 = 18
+    v34 = 34
+    v50 = 50
+    v101 = 101
+    v152 = 152
 
 
 class OtterScorer:
@@ -150,7 +150,7 @@ class OtterScorer:
         )
 
     def score_batch_of_images(
-        self, image_files: Iterable[Path | str]
+        self, image_files: Iterable[Path | str], silent: bool = False
     ) -> list[OtterPredictionResult]:
         """
         Score a batch of images located at the given filepaths.
@@ -173,9 +173,10 @@ class OtterScorer:
                 img = read_image(file)
                 img = self.preprocess(img)
             except:
-                logging.warning(
-                    f"Warning: Could not process file {file} into an image tensor."
-                )
+                if not silent:
+                    logging.warning(
+                        f"Warning: Could not process file {file} into an image tensor."
+                    )
                 continue
 
             imgs.append(img)
@@ -207,7 +208,7 @@ class OtterScorer:
         return results
 
     def score_images_in_directory(
-        self, directory: Path | str, batch_size: int = 64
+        self, directory: Path | str, batch_size: int = 64, silent: bool = False
     ) -> list[OtterPredictionResult]:
         """
         Score all images in a directory and return the results as a list.
@@ -234,6 +235,8 @@ class OtterScorer:
         # Score the images in batches
         results = list()
         for batch_files in batched(image_files, batch_size):
-            results.extend(self.score_batch_of_images(batch_files))
+            results.extend(
+                self.score_batch_of_images(image_files=batch_files, silent=silent)
+            )
 
         return results
