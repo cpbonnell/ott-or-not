@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass
 from pathlib import Path, PurePath
+from concurrent.futures import ThreadPoolExecutor
 
 import click
 import requests
@@ -17,6 +18,20 @@ from oon_utilities.configuration import (
 TRUST_ANYWAY = [
     "www.nwf.org",
 ]
+
+
+@dataclass(frozen=True)
+class ImageSearchRequest:
+    search_term: str
+    label_category: str
+    quantity: int
+
+
+@dataclass(frozen=True)
+class ImageSearchResult:
+    search_term: str
+    label_category: str
+    image_url: str
 
 
 def quick_image_search(
@@ -89,13 +104,6 @@ def download_and_store_image(
     return False
 
 
-@dataclass(frozen=True)
-class TrainingImageSearch:
-    search_term: str
-    label_category: str
-    quantity: int
-
-
 @click.command
 @click.option(
     "--download-path",
@@ -110,22 +118,20 @@ def main(download_path: Path):
 
     # Search for some images of various different otter species
     otter_searches = [
-        TrainingImageSearch(
+        ImageSearchRequest(
             "North American River Otter", "north_american_river_otter", 200
         ),
-        TrainingImageSearch("Sea Otter", "sea_otter", 200),
-        TrainingImageSearch(
-            "Asian Small Clawed Otter", "asian_small_clawed_otter", 200
-        ),
-        TrainingImageSearch("Giant Otter", "giant_otter", 200),
+        ImageSearchRequest("Sea Otter", "sea_otter", 200),
+        ImageSearchRequest("Asian Small Clawed Otter", "asian_small_clawed_otter", 200),
+        ImageSearchRequest("Giant Otter", "giant_otter", 200),
     ]
 
     # Add some non-otter images for the "not otter" category
     non_otter_searches = [
-        TrainingImageSearch("Beaver", "beaver", 200),
-        TrainingImageSearch("Platypus", "platypus", 200),
-        TrainingImageSearch("Muskrat", "muskrat", 200),
-        TrainingImageSearch("Mink", "mink", 200),
+        ImageSearchRequest("Beaver", "beaver", 200),
+        ImageSearchRequest("Platypus", "platypus", 200),
+        ImageSearchRequest("Muskrat", "muskrat", 200),
+        ImageSearchRequest("Mink", "mink", 200),
     ]
     searches = otter_searches + non_otter_searches
 
