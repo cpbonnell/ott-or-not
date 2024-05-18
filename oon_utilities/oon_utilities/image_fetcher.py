@@ -35,8 +35,7 @@ class ImageSearchResult:
 
 
 def quick_image_search(
-    search_term: str,
-    number_of_images_desired: int = 5,
+    search_request: ImageSearchRequest,
     api_key: str = GOOGLE_CUSTOM_SEARCH_API_KEY,
     csi_id: str = GOOGLE_CUSTOM_SEARCH_ENGINE_ID,
     **kwargs,
@@ -44,24 +43,25 @@ def quick_image_search(
     """
     Performs a Google Custom Search for images based on the provided search term.
 
-    :param search_term:  The term to search for.
-    :param number_of_images:  The number of images to return.
+    :param search_request:  ImageSearchRequest object containing information about the search.
     :param api_key:  The Google API key to use for the search.
     :param csi_id:  The Custom Search Engine ID to use for the search.
-    :return:  A list of URLs to the images found.
+    :return:  A list of ImageSearchResult objects containing the search results.
     """
     service = build("customsearch", "v1", developerKey=api_key)
-    results = []
+    results = list()
     query_index = 0
 
-    while len(results) < number_of_images_desired:
-        expected_results_required = number_of_images_desired - len(results)
+    # Note: we are tracking the query_index separately from the number of results
+    # actually produced.
+    while len(results) < search_request.quantity:
+        expected_results_required = search_request.quantity - len(results)
         batch_size = expected_results_required if expected_results_required < 10 else 10
 
         query_result = (
             service.cse()
             .list(
-                q=search_term,
+                q=search_request.search_term,
                 cx=csi_id,
                 searchType="image",
                 num=batch_size,
@@ -70,14 +70,28 @@ def quick_image_search(
             )
             .execute()
         )
-        results.extend([item["link"] for item in query_result["items"]])
+
+        results.extend(
+            [
+                ImageSearchResult(
+                    search_term=search_request.search_term,
+                    label_category=search_request.label_category,
+                    image_url=item["link"],
+                )
+                for item in query_result["items"]
+            ]
+        )
         query_index += batch_size
 
     return results
 
 
 def download_and_store_image(
-    image_url: str, destination_path: Path, skip_existing_images: bool = True, **kwargs
+    search_result: ImageSearchResult,
+    destination_directory_path: Path,
+    skip_existing_images: bool = True,
+    timeout: int = 8,
+    **kwargs,
 ) -> bool:
     """
     Downloads an image from a URL and stores it at the provided destination path.
@@ -87,14 +101,24 @@ def download_and_store_image(
     :param kwargs:  Additional keyword arguments to pass to the requests.get function.
     :return:  True if the image was successfully downloaded and stored, False otherwise.
     """
+    url_parts = parse_url(search_result.image_url)
+    image_remote_path = PurePath(url_parts.path)
+    destination_path = (
+        destination_directory_path
+        / search_result.label_category
+        / image_remote_path.name
+    )
     # If the file already exists, skip this image to avoid fetching it from the internet again.
     if skip_existing_images and destination_path.exists():
         return True
 
     try:
-        response = requests.get(image_url, timeout=14, **kwargs)
+        response = requests.get(search_result.image_url, timeout=timeout, **kwargs)
     except (ConnectionError, Timeout) as e:
-        logging.error(f"Timeout error whie fetching image {image_url}")
+        logging.error(f"Timeout error whie fetching image {search_result.image_url}.")
+        return False
+    except SSLError as e:
+        logging.error(f"SSL Error encountered from host {url_parts.host}.")
         return False
 
     if response.status_code == 200:
