@@ -1,13 +1,14 @@
-import logging
 from dataclasses import dataclass
 from pathlib import Path, PurePath
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
+from enum import Enum
+from datetime import datetime
 
 import click
 import requests
 from googleapiclient.discovery import build
-from requests.exceptions import ConnectionError, SSLError, Timeout
+from requests.exceptions import ConnectionError, SSLError, ConnectTimeout, ReadTimeout
 from tqdm import tqdm
 from urllib3.util import parse_url
 
@@ -33,6 +34,15 @@ class ImageSearchResult:
     search_term: str
     label_category: str
     image_url: str
+
+
+class ImageDownloadResult(Enum):
+    SUCCESS = "success"
+    FAILED = "failed"
+    FAILED_SSL_ERROR = "SSLError"
+    FAILED_READ_TIMEOUT = "ReadTimeout"
+    FAILED_CONNECTION_TIMEOUT = "ConnectionTimeout"
+    FAILED_CONNECTION_ERROR = "ConnectionError"
 
 
 def quick_image_search(
@@ -100,7 +110,7 @@ def download_and_store_image(
     :param image_url:  The URL of the image to download.
     :param destination_path:  The path to store the downloaded image.
     :param kwargs:  Additional keyword arguments to pass to the requests.get function.
-    :return:  None if the download was successful, or the ImageSearchResult object if it failed.
+    :return:  The ImageSearchResult together with its ImageDownloadResult.
     """
     url_parts = parse_url(search_result.image_url)
     image_remote_path = PurePath(url_parts.path)
@@ -111,18 +121,19 @@ def download_and_store_image(
     )
     # If the file already exists, skip this image to avoid fetching it from the internet again.
     if skip_existing_images and destination_path.exists():
-        return None
+        return (search_result, ImageDownloadResult.SUCCESS)
 
     try:
         response = requests.get(search_result.image_url, timeout=timeout, **kwargs)
-    except (ConnectionError, Timeout, SSLError) as e:
-        return search_result
+    except (ConnectionError, ConnectTimeout, ReadTimeout, SSLError) as e:
+        failed_reason = ImageDownloadResult(e.__class__.__name__)
+        return (search_result, failed_reason)
 
     if response.status_code == 200:
         with destination_path.open("wb") as f:
             f.write(response.content)
-        return None
-    return search_result
+        return (search_result, ImageDownloadResult.SUCCESS)
+    return (search_result, ImageDownloadResult.FAILED)
 
 
 @click.command
@@ -134,29 +145,34 @@ def download_and_store_image(
 @click.option("--concurrent-downloads", type=int, default=12)
 def main(download_path: Path, concurrent_downloads: int):
 
+    # NOTE: Google Image search API will not return more than 100 results for a given
+    # search term. There is also a limit of 1,200 results per minute before you get
+    # a 400 status code indicating you've exceeded the limit.
+
     # Ensure we have the necessary configuration
     assert GOOGLE_CUSTOM_SEARCH_API_KEY
     assert GOOGLE_CUSTOM_SEARCH_ENGINE_ID
 
     # Search for some images of various different otter species
     otter_searches = [
-        ImageSearchRequest(
-            "North American River Otter", "north_american_river_otter", 200
-        ),
-        ImageSearchRequest("Sea Otter", "sea_otter", 200),
-        ImageSearchRequest("Asian Small Clawed Otter", "asian_small_clawed_otter", 200),
-        ImageSearchRequest("Giant Otter", "giant_otter", 200),
+        # ImageSearchRequest(
+        #     "North American River Otter", "north_american_river_otter", 100
+        # ),
+        # ImageSearchRequest("Sea Otter", "sea_otter", 100),
+        # ImageSearchRequest("Asian Small Clawed Otter", "asian_small_clawed_otter", 100),
+        # ImageSearchRequest("Giant Otter", "giant_otter", 100),
     ]
 
     # Add some non-otter images for the "not otter" category
     non_otter_searches = [
-        ImageSearchRequest("Beaver", "beaver", 200),
-        ImageSearchRequest("Platypus", "platypus", 200),
-        ImageSearchRequest("Muskrat", "muskrat", 200),
-        ImageSearchRequest("Mink", "mink", 200),
+        # ImageSearchRequest("Beaver", "beaver", 100),
+        ImageSearchRequest("Platypus", "platypus", 100),
+        ImageSearchRequest("Muskrat", "muskrat", 100),
+        ImageSearchRequest("Mink", "mink", 100),
     ]
     searches = otter_searches + non_otter_searches
 
+    failed_downloads = list()
     for search in searches:
 
         # Perform the search
@@ -179,8 +195,20 @@ def main(download_path: Path, concurrent_downloads: int):
             )
 
             # Log any failed downloads
-            for result in results:
-                if result:
-                    logging.warning(
-                        f"Failed to download image from URL: {result.image_url}"
-                    )
+            failed_downloads.extend(
+                [
+                    (r, reason)
+                    for r, reason in results
+                    if reason != ImageDownloadResult.SUCCESS
+                ]
+            )
+
+    # Write a report of failed downloads into the download directory
+    failed_downloads_report_path = (
+        download_path / f"failed_downloads_{datetime.now()}.txt"
+    )
+
+    print(f"Writing a report of failed downloads to {failed_downloads_report_path}.")
+    with failed_downloads_report_path.open("w") as f:
+        for result, reason in failed_downloads:
+            f.write(f"{result.image_url} failed with reason: {reason}\n")
