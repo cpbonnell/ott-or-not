@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path, PurePath
 from concurrent.futures import ThreadPoolExecutor
+from typing import Optional
 
 import click
 import requests
@@ -92,14 +93,14 @@ def download_and_store_image(
     skip_existing_images: bool = True,
     timeout: int = 8,
     **kwargs,
-) -> bool:
+) -> Optional[ImageSearchResult]:
     """
     Downloads an image from a URL and stores it at the provided destination path.
 
     :param image_url:  The URL of the image to download.
     :param destination_path:  The path to store the downloaded image.
     :param kwargs:  Additional keyword arguments to pass to the requests.get function.
-    :return:  True if the image was successfully downloaded and stored, False otherwise.
+    :return:  None if the download was successful, or the ImageSearchResult object if it failed.
     """
     url_parts = parse_url(search_result.image_url)
     image_remote_path = PurePath(url_parts.path)
@@ -110,22 +111,18 @@ def download_and_store_image(
     )
     # If the file already exists, skip this image to avoid fetching it from the internet again.
     if skip_existing_images and destination_path.exists():
-        return True
+        return None
 
     try:
         response = requests.get(search_result.image_url, timeout=timeout, **kwargs)
-    except (ConnectionError, Timeout) as e:
-        logging.error(f"Timeout error whie fetching image {search_result.image_url}.")
-        return False
-    except SSLError as e:
-        logging.error(f"SSL Error encountered from host {url_parts.host}.")
-        return False
+    except (ConnectionError, Timeout, SSLError) as e:
+        return search_result
 
     if response.status_code == 200:
-        with open(destination_path, "wb") as f:
+        with destination_path.open("wb") as f:
             f.write(response.content)
-        return True
-    return False
+        return None
+    return search_result
 
 
 @click.command
@@ -134,7 +131,8 @@ def download_and_store_image(
     type=click.Path(exists=True),
     default=Path("/mnt/a/data/ott-or-not").expanduser(),
 )
-def main(download_path: Path):
+@click.option("--concurrent-downloads", type=int, default=12)
+def main(download_path: Path, concurrent_downloads: int):
 
     # Ensure we have the necessary configuration
     assert GOOGLE_CUSTOM_SEARCH_API_KEY
@@ -161,31 +159,28 @@ def main(download_path: Path):
 
     for search in searches:
 
-        # Define the destinatino directory, and ensure it exists
-        destination_directory = download_path / search.label_category
-        destination_directory.mkdir(parents=True, exist_ok=True)
-
         # Perform the search
-        image_urls = quick_image_search(search.search_term, search.quantity)
+        print(f"Performing image search for {search.search_term}.")
+        search_results = quick_image_search(search)
 
-        # Download the resulting images
-        for index, image_url in tqdm(enumerate(image_urls)):
-            url_parts = parse_url(image_url)
-            image_remote_path = PurePath(url_parts.path)
-            destination_path = destination_directory / image_remote_path.name
-            for attempt in range(2):
-                # Right now, we will only give 2nd changes for sites in the
-                if attempt == 2 and url_parts.host not in TRUST_ANYWAY:
-                    break
-
-                # If we've already tried once, and the host is in the TRUST_ANYWAY list, we'll skip verification
-                verify = (
-                    False if attempt > 0 and url_parts.host in TRUST_ANYWAY else True
+        print(f"Downloading images for {search.search_term}.")
+        search_results_directory = download_path / search.label_category
+        search_results_directory.mkdir(parents=True, exist_ok=True)
+        with ThreadPoolExecutor(max_workers=concurrent_downloads) as executor:
+            results = list(
+                tqdm(
+                    executor.map(
+                        download_and_store_image,
+                        search_results,
+                        [download_path] * len(search_results),
+                    ),
+                    total=len(search_results),
                 )
+            )
 
-                try:
-                    download_and_store_image(image_url, destination_path, verify=verify)
-                except SSLError as e:
-                    logging.error(
-                        f"SSL Error encountered from host {url_parts.host} (attempt {attempt})."
+            # Log any failed downloads
+            for result in results:
+                if result:
+                    logging.warning(
+                        f"Failed to download image from URL: {result.image_url}"
                     )
