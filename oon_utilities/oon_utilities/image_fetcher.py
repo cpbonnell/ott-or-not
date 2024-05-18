@@ -108,16 +108,26 @@ def main(download_path: Path):
     assert GOOGLE_CUSTOM_SEARCH_API_KEY
     assert GOOGLE_CUSTOM_SEARCH_ENGINE_ID
 
-    # Define the search terms
-    searches = [
+    # Search for some images of various different otter species
+    otter_searches = [
         TrainingImageSearch(
-            "North American River Otter", "north_american_river_otter_100", 100
+            "North American River Otter", "north_american_river_otter", 200
         ),
-        TrainingImageSearch("Sea Otter", "sea_otter_100", 100),
+        TrainingImageSearch("Sea Otter", "sea_otter", 200),
         TrainingImageSearch(
-            "Asian Small Clawed Otter", "asian_small_clawed_otter", 100
+            "Asian Small Clawed Otter", "asian_small_clawed_otter", 200
         ),
+        TrainingImageSearch("Giant Otter", "giant_otter", 200),
     ]
+
+    # Add some non-otter images for the "not otter" category
+    non_otter_searches = [
+        TrainingImageSearch("Beaver", "beaver", 200),
+        TrainingImageSearch("Platypus", "platypus", 200),
+        TrainingImageSearch("Muskrat", "muskrat", 200),
+        TrainingImageSearch("Mink", "mink", 200),
+    ]
+    searches = otter_searches + non_otter_searches
 
     for search in searches:
 
