@@ -161,14 +161,16 @@ def main(download_path: Path, concurrent_downloads: int):
         # ImageSearchRequest("Sea Otter", "sea_otter", 100),
         # ImageSearchRequest("Asian Small Clawed Otter", "asian_small_clawed_otter", 100),
         # ImageSearchRequest("Giant Otter", "giant_otter", 100),
+        ImageSearchRequest("Eurasian River Otter", "eurasian_river_otter", 100),
     ]
 
     # Add some non-otter images for the "not otter" category
     non_otter_searches = [
         # ImageSearchRequest("Beaver", "beaver", 100),
-        ImageSearchRequest("Platypus", "platypus", 100),
-        ImageSearchRequest("Muskrat", "muskrat", 100),
-        ImageSearchRequest("Mink", "mink", 100),
+        # ImageSearchRequest("Platypus", "platypus", 100),
+        # ImageSearchRequest("Muskrat", "muskrat", 100),
+        # ImageSearchRequest("Mink", "mink", 100),
+        ImageSearchRequest("Raccoon", "raccoon", 100),
     ]
     searches = otter_searches + non_otter_searches
 
