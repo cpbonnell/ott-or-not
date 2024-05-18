@@ -1,23 +1,21 @@
-from pathlib import Path
-from dataclasses import dataclass
-from itertools import batched
-from typing import Iterable
-from enum import Enum
 import logging
-
-from PIL import Image
+from dataclasses import dataclass
+from enum import Enum
+from itertools import batched
+from pathlib import Path
+from typing import Iterable
 
 import torch
-import torchvision
+from PIL import Image
 from torchvision.io import read_image
-from torchvision.transforms import ToPILImage
-from torchvision.models.resnet import ResNet
+from torchvision.models import ResNet101_Weights, resnet101
+from torchvision.models import ResNet152_Weights, resnet152
+from torchvision.models import ResNet18_Weights, resnet18
+from torchvision.models import ResNet34_Weights, resnet34
+from torchvision.models import ResNet50_Weights, resnet50
 from torchvision.models import WeightsEnum
-from torchvision.models import resnet18, ResNet18_Weights
-from torchvision.models import resnet34, ResNet34_Weights
-from torchvision.models import resnet50, ResNet50_Weights
-from torchvision.models import resnet101, ResNet101_Weights
-from torchvision.models import resnet152, ResNet152_Weights
+from torchvision.models.resnet import ResNet
+from torchvision.transforms import ToPILImage
 
 CPU_DEVICE = torch.device("cpu")
 

@@ -1,14 +1,14 @@
-from dataclasses import dataclass
-from pathlib import Path, PurePath
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional
-from enum import Enum
+from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
+from pathlib import Path, PurePath
+from typing import Optional
 
 import click
 import requests
 from googleapiclient.discovery import build
-from requests.exceptions import ConnectionError, SSLError, ConnectTimeout, ReadTimeout
+from requests.exceptions import ConnectTimeout, ConnectionError, ReadTimeout, SSLError
 from tqdm import tqdm
 from urllib3.util import parse_url
 
