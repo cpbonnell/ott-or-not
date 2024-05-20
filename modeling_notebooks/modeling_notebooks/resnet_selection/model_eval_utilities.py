@@ -1,4 +1,5 @@
 import pandas as pd
+from sklearn.metrics import confusion_matrix
 
 
 def generate_metric_curves(
@@ -30,26 +31,37 @@ def generate_metric_curves(
         model_df = df[df[model_colname] == model_name].copy()
 
         for i in range(breaks + 1):
-            threshold = i / breaks
 
-            # Compute the confusion matrix
+            threshold = i / breaks
             model_df["prediction"] = model_df[score_colname] > threshold
-            confusion_matrix = pd.crosstab(
-                model_df[true_category_colname], model_df["prediction"]
+            cm = confusion_matrix(
+                y_true=model_df[true_category_colname],
+                y_pred=model_df["prediction"],
+                labels=[True, False],
             )
 
             # Compute the true positive rate, false positive rate, precision, and recall
-            true_positive = confusion_matrix.loc[True, True]
-            false_positive = confusion_matrix.loc[False, True]
-            false_negative = confusion_matrix.loc[True, False]
+            true_positive = cm[0, 0]
+            false_positive = cm[1, 0]
+            true_negative = cm[1, 1]
+            false_negative = cm[0, 1]
+            positive_count = true_positive + false_negative
+            negative_count = false_positive + true_negative
+            positive_prediction_count = true_positive + false_positive
 
-            true_positive_rate = true_positive / (true_positive + false_negative)
-            false_positive_rate = false_positive / (
-                false_positive + confusion_matrix.loc[False, False]
+            true_positive_rate = (
+                true_positive / positive_count if positive_count > 0 else 0
+            )
+            false_positive_rate = (
+                false_positive / negative_count if negative_count > 0 else 0
             )
 
-            precision = true_positive / (true_positive + false_positive)
-            recall = true_positive / (true_positive + false_negative)
+            precision = (
+                true_positive / positive_prediction_count
+                if positive_prediction_count > 0
+                else 0
+            )
+            recall = true_positive_rate
 
             metric_results_records.append(
                 {
@@ -57,6 +69,8 @@ def generate_metric_curves(
                     "threshold": threshold,
                     "true_positive_count": true_positive,
                     "false_positive_count": false_positive,
+                    "true_negative_count": true_negative,
+                    "false_negative_count": false_negative,
                     "true_positive_rate": true_positive_rate,
                     "false_positive_rate": false_positive_rate,
                     "precision": precision,

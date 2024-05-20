@@ -95,15 +95,16 @@ class OtterScorer:
         :param item:  An image, a path to an image file, or an OtterPredictionResult object.
         :return:  The image after applying the preprocessing transforms.
         """
-        match item:
-            case Image.Image as image_class:
-                img = image_class
-            case str(s):
-                img = read_image(Path(s).expanduser())
-            case Path(p):
-                img = read_image(p.expanduser())
-            case OtterPredictionResult as pred:
-                img = read_image(pred.file_path)
+        if isinstance(item, Image.Image):
+            img = item
+        elif isinstance(item, str):
+            img = read_image(Path(item).expanduser())
+        elif isinstance(item, Path):
+            img = read_image(item.expanduser())
+        elif isinstance(item, OtterPredictionResult):
+            img = read_image(item.file_path)
+        else:
+            raise ValueError("Invalid input type for 'item'")
 
         # Apply the preprocessing transforms
         tensor = self.preprocess(img)
