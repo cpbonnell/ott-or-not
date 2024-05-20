@@ -10,10 +10,9 @@ If it is an otter, another model will determine what species of otter it is.
 The web application is not yet up and running, but a link to it will be provided once 
 the first deployment of a user interface is complete.
 
-# Structure
+## Structure
 This is a mono-repo project, where each directory contains the code for one specific 
-part of the overall project. Each sub-directory is a Python module, using [Poetry]
-(https://python-poetry.org/) as the package manager, and Python 3.12 as the base 
+part of the overall project. Each sub-directory is a Python module, using [Poetry](https://python-poetry.org/) as the package manager, and Python 3.12 as the base 
 interpreter for the project.
 
 Most of the machine learning material is organized in the `modeling_notebooks` Python 
@@ -27,8 +26,7 @@ useful across all the other projects, as well as utility scripts for accomplishi
 tasks such as assembling training/eval data from scraping internet images.
 
 Database structure for all parts of the project can be found in the 
-`database_migrations` Python module. This module uses [Alembic](https://alembic.
-sqlalchemy.org/en/latest/) to manage migrations and structure, as well as Docker to 
+`database_migrations` Python module. This module uses [Alembic](https://alembic.sqlalchemy.org/en/latest/) to manage migrations and structure, as well as Docker to 
 provide convenient testing on a local instance of Postgres. This package has some 
 tables already defined, though they are not yet being actively used by other projects.
 
