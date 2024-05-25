@@ -5,6 +5,7 @@ description = ""
 authors = ["christianbonnell <christian.bonnell@gmail.com>"]
 readme = "README.md"
 packages = [{include = "oon_utilities"}]
+include = ["oon_utilities/resources/words/*.txt"]
 
 [tool.poetry.dependencies]
 python = "^3.12"
