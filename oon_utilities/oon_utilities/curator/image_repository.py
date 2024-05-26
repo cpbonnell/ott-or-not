@@ -120,7 +120,9 @@ class FileSystemImageRepository(ImageRepository):
         self._root_directory = Path(root_directory)
 
         self._image_hashes = set()
-        for root, dirs, files in self._root_directory.walk(self._root_directory):
+        for root, dirs, files in self._root_directory.walk(
+            self._root_directory, follow_symlinks=False
+        ):
             for file in files:
                 if file.endswith(".jpeg"):
                     hash_parts = self.get_hash_parts_from_filename(file)
