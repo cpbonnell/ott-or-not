@@ -76,18 +76,13 @@ class ImageHasher:
 class ImageRepository(ABC):
 
     @staticmethod
-    def create_image_filename(image: Image.Image, extension: str = ".jpg") -> str:
-
-        # Strip leading periods from the extension, and check that it is an acceptable format.
-        while extension[0] == ".":
-            extension = extension[1:]
-        assert extension in ["jpg", "jpeg", "png"]
+    def create_image_filename(image: Image.Image) -> str:
 
         # Get the hashwords and hexdigest for the image.
         adjective, noun, hexdigest = (
             ImageHasher.get_or_create().get_hashwords_and_hexdigest(image)
         )
-        return f"{adjective}_{noun}_{hexdigest}.{extension}"
+        return f"{adjective}_{noun}_{hexdigest}.jpeg"
 
 
 class FileSystemImageRepository(ImageRepository):
