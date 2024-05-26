@@ -6,6 +6,8 @@ of images for use in machine learning applications.
 import hashlib
 from abc import ABC
 from importlib import resources
+from pathlib import Path
+import re
 
 from PIL import Image
 
@@ -75,6 +77,8 @@ class ImageHasher:
 
 class ImageRepository(ABC):
 
+    file_path_part_pattern = re.compile(r"([a-z]+)_([a-z]+)_([a-f0-9]+)\.jpeg")
+
     @staticmethod
     def create_image_filename(image: Image.Image) -> str:
 
@@ -84,13 +88,57 @@ class ImageRepository(ABC):
         )
         return f"{adjective}_{noun}_{hexdigest}.jpeg"
 
+    @staticmethod
+    def get_hash_parts_from_filename(filename: str) -> dict[str, str] | None:
+        """
+        return a dictionary containing the adjective, noun, and hexdigest from the filename.
+        """
+        match = ImageRepository.file_path_part_pattern.match(filename)
+        if match is None or len(match.groups()) < 3:
+            return None
+        return {
+            "adjective": match.group(1),
+            "noun": match.group(2),
+            "hexdigest": match.group(3),
+        }
+
+    def save_image(self, image: Image.Image, **kwargs) -> bool:
+        raise NotImplementedError
+
 
 class FileSystemImageRepository(ImageRepository):
     """
     A simple image repository using only the local file system.
 
     This class is an implementation of the ImageRepository ABC that stores images
-    on the local file system.
+    on the local file system. It maintains an in-memory record of the image hashes
+    in all directories it manages, to prevent duplicate images from being saved.
     """
 
-    pass
+    def __init__(self, root_directory: Path | str) -> None:
+        super().__init__()
+        self._root_directory = Path(root_directory)
+
+        self._image_hashes = set()
+        for root, dirs, files in self._root_directory.walk(self._root_directory):
+            for file in files:
+                if file.endswith(".jpeg"):
+                    hash_parts = self.get_hash_parts_from_filename(file)
+                    if hash_parts is not None:
+                        self._image_hashes.add(hash_parts["hexdigest"])
+                    else:
+                        print(
+                            f"Skipping file {file} wich is not an image repository name."
+                        )
+
+    def save_image(self, image: Image.Image, **kwargs) -> None:
+        filename = self.create_image_filename(image)
+        if filename is None:
+            return False
+
+        if filename in self._image_hashes:
+            True
+
+        image.save(self._root_directory / filename)
+        self._image_hashes.add(filename)
+        return True
