@@ -139,6 +139,6 @@ class FileSystemImageRepository(ImageRepository):
         if filename in self._image_hashes:
             True
 
-        image.save(self._root_directory / filename)
+        image.save(self._root_directory / filename, format="JPEG")
         self._image_hashes.add(filename)
         return True
