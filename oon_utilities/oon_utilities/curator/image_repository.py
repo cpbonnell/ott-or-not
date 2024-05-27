@@ -5,11 +5,34 @@ of images for use in machine learning applications.
 
 import hashlib
 from abc import ABC
+from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
 import re
 
 from PIL import Image
+from pydantic import BaseModel
+from pathlib import Path
+from typing import Optional
+import sqlite3
+
+
+class ImageMetadata(BaseModel):
+    """
+    A Pydantic model for storing information about an image.
+
+    hexdigest - The MD5 hash of the image.
+    filepath - The Path to the image file.
+    search_query_strings - A list of search query strings that have returned this image.
+    tags - A list of tags assigned to this image by the user.
+    hashwords - A tuple of two words chosen from a list of adjectives and nouns based on the hexdigest.
+    """
+
+    hexdigest: str
+    filepath: Path
+    search_query_strings: list[str] = []
+    tags: list[str] = []
+    hashwords: Optional[tuple[str, str]] = None
 
 
 class ImageHasher:
@@ -102,6 +125,16 @@ class ImageRepository(ABC):
             "hexdigest": match.group(3),
         }
 
+    def get_image_metadata(self, image: Image.Image) -> ImageMetadata:
+        adjective, noun, hexdigest = (
+            ImageHasher.get_or_create().get_hashwords_and_hexdigest()
+        )
+        return ImageMetadata(
+            hexdigest=hexdigest,
+            filepath=self._root_directory / self.create_image_filename(image),
+            hashwords=(adjective, noun),
+        )
+
     def save_image(self, image: Image.Image, **kwargs) -> bool:
         raise NotImplementedError
 
@@ -115,9 +148,28 @@ class FileSystemImageRepository(ImageRepository):
     in all directories it manages, to prevent duplicate images from being saved.
     """
 
+    METADATA_TABLE_CREATION_QUERY = """
+    CREATE TABLE IF NOT EXISTS image_metadata (
+        hexdigest TEXT PRIMARY KEY,
+        filepath TEXT NOT NULL,
+        metadata JSON NOT NULL
+    )
+    """
+
+    METADATA_INSERTION_QUERY = """
+    INSERT INTO image_metadata (hexdigest, filepath, metadata)
+    VALUES ({hexdigest}, {filepath}, {metadata})
+    ON CONFLICT (hexdigest) DO UPDATE SET metadata = {metadata}
+    """
+
     def __init__(self, root_directory: Path | str) -> None:
         super().__init__()
         self._root_directory = Path(root_directory)
+
+        # Identify the database file for this repository, and ensure that the metadata table exists.
+        self._db_filepath = self._root_directory / "image_metadata_repository.db"
+        with sqlite3.connect(self._db_filepath) as conn:
+            conn.execute(self.METADATA_TABLE_CREATION_QUERY)
 
         self._image_hashes = set()
         for root, dirs, files in self._root_directory.walk(
@@ -141,6 +193,17 @@ class FileSystemImageRepository(ImageRepository):
         if filename in self._image_hashes:
             True
 
-        image.save(self._root_directory / filename, format="JPEG")
+        image_metadata = self.get_image_metadata(image)
+        prepared_insertion_query = self.METADATA_INSERTION_QUERY.format(
+            hexdigest=image_metadata.hexdigest,
+            filepath=image_metadata.filepath,
+            metadata=image_metadata.model_dump_json(),
+        )
+
+        # Write the file and image metadata
+        image.save(image_metadata.filepath, format="JPEG")
+        with sqlite3.connect(self._db_filepath) as conn:
+            conn.execute(prepared_insertion_query)
+
         self._image_hashes.add(filename)
         return True
