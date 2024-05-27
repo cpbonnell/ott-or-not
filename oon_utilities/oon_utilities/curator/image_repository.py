@@ -179,6 +179,9 @@ class FileSystemImageRepository(ImageRepository):
 
     @override
     def get_image_metadata(self, hexdigest: str) -> ImageMetadata | None:
+        """
+        Retrieve the metadata for an image with the given hexdigest.
+        """
         with sqlite3.connect(self._db_filepath) as conn:
             result = conn.execute(
                 self.METADATA_GET_QUERY.format(hexdigest=hexdigest)
@@ -189,6 +192,11 @@ class FileSystemImageRepository(ImageRepository):
 
     @override
     def save_image(self, image: Image.Image, **kwargs) -> Optional[ImageMetadata]:
+        """
+        Save an image to the repository and return its metadata.
+
+        If the image has already been saved, the existing metadata will be returned.
+        """
 
         image_metadata = self.construct_image_metadata(image)
 
