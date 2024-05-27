@@ -162,6 +162,10 @@ class FileSystemImageRepository(ImageRepository):
     ON CONFLICT (hexdigest) DO UPDATE SET metadata = {metadata}
     """
 
+    METADATA_CHECK_FOR_EXISTENCE_QUERY = """
+    SELECT hexdigest FROM image_metadata WHERE hexdigest = {hexdigest}
+    """
+
     def __init__(self, root_directory: Path | str) -> None:
         super().__init__()
         self._root_directory = Path(root_directory)
@@ -171,39 +175,29 @@ class FileSystemImageRepository(ImageRepository):
         with sqlite3.connect(self._db_filepath) as conn:
             conn.execute(self.METADATA_TABLE_CREATION_QUERY)
 
-        self._image_hashes = set()
-        for root, dirs, files in self._root_directory.walk(
-            self._root_directory, follow_symlinks=False
-        ):
-            for file in files:
-                if file.endswith(".jpeg"):
-                    hash_parts = self.get_hash_parts_from_filename(file)
-                    if hash_parts is not None:
-                        self._image_hashes.add(hash_parts["hexdigest"])
-                    else:
-                        print(
-                            f"Skipping file {file} wich is not an image repository name."
-                        )
-
-    def save_image(self, image: Image.Image, **kwargs) -> None:
-        filename = self.create_image_filename(image)
-        if filename is None:
-            return False
-
-        if filename in self._image_hashes:
-            True
+    def save_image(self, image: Image.Image, **kwargs) -> bool:
 
         image_metadata = self.get_image_metadata(image)
+
+        prepared_exists_query = self.METADATA_CHECK_FOR_EXISTENCE_QUERY.format(
+            hexdigest=image_metadata.hexdigest
+        )
         prepared_insertion_query = self.METADATA_INSERTION_QUERY.format(
             hexdigest=image_metadata.hexdigest,
             filepath=image_metadata.filepath,
             metadata=image_metadata.model_dump_json(),
         )
 
-        # Write the file and image metadata
-        image.save(image_metadata.filepath, format="JPEG")
+        # Check if the metadata repository to see if the image has been saved before.
         with sqlite3.connect(self._db_filepath) as conn:
+
+            # If the image already exists in vthe metadata, we can skip writing it to disk.
+            result = conn.execute(prepared_exists_query).fetchone()
+            if result is not None:
+                return True
+
+            # Write the file and image metadata
+            image.save(image_metadata.filepath, format="JPEG")
             conn.execute(prepared_insertion_query)
 
-        self._image_hashes.add(filename)
         return True
