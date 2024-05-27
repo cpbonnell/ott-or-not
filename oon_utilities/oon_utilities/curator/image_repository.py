@@ -13,7 +13,7 @@ import re
 from PIL import Image
 from pydantic import BaseModel
 from pathlib import Path
-from typing import Optional
+from typing import override, Optional
 import sqlite3
 
 
@@ -125,7 +125,7 @@ class ImageRepository(ABC):
             "hexdigest": match.group(3),
         }
 
-    def get_image_metadata(self, image: Image.Image) -> ImageMetadata:
+    def construct_image_metadata(self, image: Image.Image) -> ImageMetadata:
         adjective, noun, hexdigest = (
             ImageHasher.get_or_create().get_hashwords_and_hexdigest()
         )
@@ -136,6 +136,9 @@ class ImageRepository(ABC):
         )
 
     def save_image(self, image: Image.Image, **kwargs) -> bool:
+        raise NotImplementedError
+
+    def get_image_metadata(self, hexdigest: str) -> Optional[ImageMetadata]:
         raise NotImplementedError
 
 
@@ -151,30 +154,18 @@ class FileSystemImageRepository(ImageRepository):
     METADATA_TABLE_CREATION_QUERY = """
     CREATE TABLE IF NOT EXISTS image_metadata (
         hexdigest TEXT PRIMARY KEY,
-        filepath TEXT NOT NULL,
         metadata JSON NOT NULL
     )
     """
 
     METADATA_INSERTION_QUERY = """
     INSERT INTO image_metadata (hexdigest, filepath, metadata)
-    VALUES ({hexdigest}, {filepath}, {metadata})
+    VALUES ({hexdigest}, {metadata})
     ON CONFLICT (hexdigest) DO UPDATE SET metadata = {metadata}
     """
 
-    METADATA_CHECK_FOR_EXISTENCE_QUERY = """
-    SELECT filepath FROM image_metadata WHERE hexdigest = {hexdigest}
-    """
-
-    # NOTE: The JSON_SET function below will fail if the metadata JSON does not contain a "filepath" key.
-    # This is what we want, since all metadata should contain a filepath key, and if it does not then we
-    # want to an error to tell us that something is wrong.
-    METADATA_SET_IMAGE_FILEPATH_QUERY = """
-    UPDATE image_metadata 
-    SET 
-        filepath = {filepath},
-        metadata = JSON_REPLACE(metadata, '$.filepath', {filepath})
-    WHERE hexdigest = {hexdigest}
+    METADATA_GET_QUERY = """
+    SELECT metadata FROM image_metadata WHERE hexdigest = {hexdigest}
     """
 
     def __init__(self, root_directory: Path | str) -> None:
@@ -186,44 +177,42 @@ class FileSystemImageRepository(ImageRepository):
         with sqlite3.connect(self._db_filepath) as conn:
             conn.execute(self.METADATA_TABLE_CREATION_QUERY)
 
+    @override
+    def get_image_metadata(self, hexdigest: str) -> ImageMetadata | None:
+        with sqlite3.connect(self._db_filepath) as conn:
+            result = conn.execute(
+                self.METADATA_GET_QUERY.format(hexdigest=hexdigest)
+            ).fetchone()
+            if result is None:
+                return None
+            return ImageMetadata.model_validate_json(result[0])
+
+    @override
     def save_image(self, image: Image.Image, **kwargs) -> Optional[ImageMetadata]:
 
-        image_metadata = self.get_image_metadata(image)
+        image_metadata = self.construct_image_metadata(image)
 
-        prepared_exists_query = self.METADATA_CHECK_FOR_EXISTENCE_QUERY.format(
-            hexdigest=image_metadata.hexdigest
-        )
+        # Check if the image has already been saved. If it has and the file exists, return the existing metadata.
+        # If there is a metadata entry but the file does not exist, update the metadata with the new file path
+        # and write the image (saving all other existing metadata for this image hash)
+        existing_metadata = self.get_image_metadata(image_metadata.hexdigest)
+        if existing_metadata is not None:
+            recorded_filepath = existing_metadata.filepath
+
+            if recorded_filepath.exists():
+                return existing_metadata
+            else:
+                existing_metadata.filepath = image_metadata.filepath
+                image_metadata = existing_metadata
+
         prepared_insertion_query = self.METADATA_INSERTION_QUERY.format(
             hexdigest=image_metadata.hexdigest,
-            filepath=image_metadata.filepath,
             metadata=image_metadata.model_dump_json(),
         )
 
         # Check if the metadata repository to see if the image has been saved before.
+        image.save(image_metadata.filepath, format="JPEG")
         with sqlite3.connect(self._db_filepath) as conn:
-
-            # If the image already exists in the metadata, we can skip writing it to disk.
-            result = conn.execute(prepared_exists_query).fetchone()
-            if result is not None:
-                reported_filepath = Path(result[0])
-                if reported_filepath.exists():
-                    # The hash exists, and so does the filepatfh we expect. We can skip writing the file.
-                    return image_metadata
-                else:
-                    # The hash exists, but the file is not where we expect it, so we will write the image
-                    # to the correct location and update the table metadata to ensure that we do not clobber
-                    # information already known about the image with this hash.
-                    conn.execute(
-                        self.METADATA_SET_IMAGE_FILEPATH_QUERY.format(
-                            hexdigest=image_metadata.hexdigest,
-                            filepath=image_metadata.filepath,
-                        )
-                    )
-                    # TODO: we should return the full image metadata here, not the newly created one.
-                    return None
-
-            # Write the file and image metadata
-            image.save(image_metadata.filepath, format="JPEG")
             conn.execute(prepared_insertion_query)
 
         return image_metadata
