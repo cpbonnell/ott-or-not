@@ -163,7 +163,18 @@ class FileSystemImageRepository(ImageRepository):
     """
 
     METADATA_CHECK_FOR_EXISTENCE_QUERY = """
-    SELECT hexdigest FROM image_metadata WHERE hexdigest = {hexdigest}
+    SELECT filepath FROM image_metadata WHERE hexdigest = {hexdigest}
+    """
+
+    # NOTE: The JSON_SET function below will fail if the metadata JSON does not contain a "filepath" key.
+    # This is what we want, since all metadata should contain a filepath key, and if it does not then we
+    # want to an error to tell us that something is wrong.
+    METADATA_SET_IMAGE_FILEPATH_QUERY = """
+    UPDATE image_metadata 
+    SET 
+        filepath = {filepath},
+        metadata = JSON_REPLACE(metadata, '$.filepath', {filepath})
+    WHERE hexdigest = {hexdigest}
     """
 
     def __init__(self, root_directory: Path | str) -> None:
@@ -175,7 +186,7 @@ class FileSystemImageRepository(ImageRepository):
         with sqlite3.connect(self._db_filepath) as conn:
             conn.execute(self.METADATA_TABLE_CREATION_QUERY)
 
-    def save_image(self, image: Image.Image, **kwargs) -> bool:
+    def save_image(self, image: Image.Image, **kwargs) -> Optional[ImageMetadata]:
 
         image_metadata = self.get_image_metadata(image)
 
@@ -191,13 +202,28 @@ class FileSystemImageRepository(ImageRepository):
         # Check if the metadata repository to see if the image has been saved before.
         with sqlite3.connect(self._db_filepath) as conn:
 
-            # If the image already exists in vthe metadata, we can skip writing it to disk.
+            # If the image already exists in the metadata, we can skip writing it to disk.
             result = conn.execute(prepared_exists_query).fetchone()
             if result is not None:
-                return True
+                reported_filepath = Path(result[0])
+                if reported_filepath.exists():
+                    # The hash exists, and so does the filepatfh we expect. We can skip writing the file.
+                    return image_metadata
+                else:
+                    # The hash exists, but the file is not where we expect it, so we will write the image
+                    # to the correct location and update the table metadata to ensure that we do not clobber
+                    # information already known about the image with this hash.
+                    conn.execute(
+                        self.METADATA_SET_IMAGE_FILEPATH_QUERY.format(
+                            hexdigest=image_metadata.hexdigest,
+                            filepath=image_metadata.filepath,
+                        )
+                    )
+                    # TODO: we should return the full image metadata here, not the newly created one.
+                    return None
 
             # Write the file and image metadata
             image.save(image_metadata.filepath, format="JPEG")
             conn.execute(prepared_insertion_query)
 
-        return True
+        return image_metadata
