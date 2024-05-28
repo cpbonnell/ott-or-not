@@ -69,11 +69,18 @@ def test_retrieve_image():
         image_repository = FileSystemImageRepository(root_directory=Path(tempdir))
 
         # insert a few images that we can run tests on
-        plain_metadata = image_repository.save_image(plain_image)
+        plain_metadata = image_repository.save_image(plain_image, tags=["plain"])
         assert plain_metadata.filepath.is_file()
+        assert "plain" in plain_metadata.tags
 
-        mandel_metadata = image_repository.save_image(mandel_image)
+        mandel_metadata = image_repository.save_image(
+            mandel_image,
+            tags=["mandelbrot"],
+            search_terms=["Something extremely Fractal"],
+        )
         assert mandel_metadata.filepath.is_file()
+        assert "mandelbrot" in mandel_metadata.tags
+        assert "Something extremely Fractal" in mandel_metadata.search_query_strings
 
         # Retrieve the image metadata and check that they are the same as the ones we inserted
         plain_hash = ImageHasher.get_or_create().get_hexdigest(plain_image)
@@ -81,12 +88,20 @@ def test_retrieve_image():
         assert retrieved_plain_metadata.filepath.is_file()
         assert retrieved_plain_metadata.hexdigest == plain_metadata.hexdigest
         assert retrieved_plain_metadata.filepath == plain_metadata.filepath
+        assert "plain" in retrieved_plain_metadata.tags
+        assert "mandelbrot" not in retrieved_plain_metadata.tags
 
         mandel_hash = ImageHasher.get_or_create().get_hexdigest(mandel_image)
         retrieved_mandle_metadata = image_repository.get_image_metadata(mandel_hash)
         assert retrieved_mandle_metadata.filepath.is_file()
         assert retrieved_mandle_metadata.hexdigest == mandel_metadata.hexdigest
         assert retrieved_mandle_metadata.filepath == mandel_metadata.filepath
+        assert "mandelbrot" in retrieved_mandle_metadata.tags
+        assert "plain" not in retrieved_mandle_metadata.tags
+        assert (
+            "Something extremely Fractal"
+            in retrieved_mandle_metadata.search_query_strings
+        )
 
         # Check that we get None when we try to retrieve a non-existent image
         non_existent_metadata = image_repository.get_image_metadata("non_existent")
