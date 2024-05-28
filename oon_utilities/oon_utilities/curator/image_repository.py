@@ -130,7 +130,7 @@ class ImageRepository(ABC):
 
     def construct_image_metadata(self, image: Image.Image) -> ImageMetadata:
         adjective, noun, hexdigest = (
-            ImageHasher.get_or_create().get_hashwords_and_hexdigest()
+            ImageHasher.get_or_create().get_hashwords_and_hexdigest(image)
         )
         return ImageMetadata(
             hexdigest=hexdigest,
@@ -162,13 +162,13 @@ class FileSystemImageRepository(ImageRepository):
     """
 
     METADATA_INSERTION_QUERY = """
-    INSERT INTO image_metadata (hexdigest, filepath, metadata)
-    VALUES ({hexdigest}, {metadata})
-    ON CONFLICT (hexdigest) DO UPDATE SET metadata = {metadata}
+    INSERT INTO image_metadata (hexdigest, metadata)
+    VALUES ('{hexdigest}', '{metadata}')
+    ON CONFLICT (hexdigest) DO UPDATE SET metadata = '{metadata}'
     """
 
     METADATA_GET_QUERY = """
-    SELECT metadata FROM image_metadata WHERE hexdigest = {hexdigest}
+    SELECT metadata FROM image_metadata WHERE hexdigest = '{hexdigest}'
     """
 
     def __init__(self, root_directory: Path | str) -> None:
