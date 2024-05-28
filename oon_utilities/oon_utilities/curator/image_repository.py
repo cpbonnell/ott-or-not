@@ -7,10 +7,9 @@ import hashlib
 import re
 import sqlite3
 from abc import ABC
-from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
-from typing import Optional, override
+from typing import Optional, override, Collection
 
 from PIL import Image
 from pydantic import BaseModel
@@ -31,8 +30,8 @@ class ImageMetadata(BaseModel):
 
     hexdigest: str
     filepath: Path
-    search_query_strings: list[str] = []
-    tags: list[str] = []
+    search_query_strings: set[str] = set()
+    tags: set[str] = set()
     hashwords: Optional[tuple[str, str]] = None
 
 
@@ -204,11 +203,23 @@ class FileSystemImageRepository(ImageRepository):
             return ImageMetadata.model_validate_json(result[0])
 
     @override
-    def save_image(self, image: Image.Image, **kwargs) -> Optional[ImageMetadata]:
+    def save_image(
+        self,
+        image: Image.Image,
+        search_terms: str | Collection[str] | None = None,
+        tags: str | Collection[str] | None = None,
+        **kwargs,
+    ) -> Optional[ImageMetadata]:
         """
         Save an image to the repository and return its metadata.
 
         If the image has already been saved, the existing metadata will be returned.
+
+        :param image: The image to save.
+        :param search_terms: The search terms that returned this image.
+        :param tags: The tags assigned to this image.
+        :param kwargs: Additional keyword arguments (not currently used, but included for future compatibility)
+        :return: The metadata for the saved image.
         """
 
         image_metadata = self.construct_image_metadata(image)
@@ -226,12 +237,24 @@ class FileSystemImageRepository(ImageRepository):
                 existing_metadata.filepath = image_metadata.filepath
                 image_metadata = existing_metadata
 
+        # Add the search terms and tags to the metadata.
+        if search_terms is not None:
+            if isinstance(search_terms, str):
+                image_metadata.search_query_strings.add(search_terms)
+            else:
+                image_metadata.search_query_strings.update(search_terms)
+
+        if tags is not None:
+            if isinstance(tags, str):
+                image_metadata.tags.add(tags)
+            else:
+                image_metadata.tags.update(tags)
+
+        # Check Write the image and metadata to file
         prepared_insertion_query = self.METADATA_INSERTION_QUERY.format(
             hexdigest=image_metadata.hexdigest,
             metadata=image_metadata.model_dump_json(),
         )
-
-        # Check if the metadata repository to see if the image has been saved before.
         image.save(image_metadata.filepath, format="JPEG")
         with sqlite3.connect(self._db_filepath) as conn:
             conn.execute(prepared_insertion_query)
