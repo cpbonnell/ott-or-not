@@ -15,6 +15,8 @@ torchvision = "^0.18.0"
 torchaudio = "^2.3.0"
 fastai = "^2.7.15"
 plotnine = "^0.13.6"
+sqlalchemy = "^2.0.30"
+oon-utilities = {path = "../oon_utilities", develop = true}
 
 
 [build-system]
