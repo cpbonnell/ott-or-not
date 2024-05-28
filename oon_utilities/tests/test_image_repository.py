@@ -1,13 +1,14 @@
-from oon_utilities.curator.image_repository import (
-    ImageMetadata,
-    ImageHasher,
-    ImageRepository,
-    FileSystemImageRepository,
-)
-
-from tempfile import TemporaryDirectory
-from PIL import Image
 from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from PIL import Image
+
+from oon_utilities.curator.image_repository import (
+    FileSystemImageRepository,
+    ImageHasher,
+    ImageMetadata,
+    ImageRepository,
+)
 
 
 def test_create_image_filename():

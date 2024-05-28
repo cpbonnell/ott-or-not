@@ -4,18 +4,18 @@ of images for use in machine learning applications.
 """
 
 import hashlib
+import re
+import sqlite3
 from abc import ABC
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
-import re
-import oon_utilities
+from typing import Optional, override
 
 from PIL import Image
 from pydantic import BaseModel
-from pathlib import Path
-from typing import override, Optional
-import sqlite3
+
+import oon_utilities
 
 
 class ImageMetadata(BaseModel):
