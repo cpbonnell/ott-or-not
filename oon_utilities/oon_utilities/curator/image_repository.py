@@ -150,8 +150,18 @@ class FileSystemImageRepository(ImageRepository):
     A simple image repository using only the local file system.
 
     This class is an implementation of the ImageRepository ABC that stores images
-    on the local file system. It maintains an in-memory record of the image hashes
-    in all directories it manages, to prevent duplicate images from being saved.
+    on the local file system. It maintains a repository of image metadata in a
+    SQLite database, and stores the images in a directory specified by the root_directory
+    parameter. The image metadata includes the hexdigest of the image, the file path
+    of the image, a list of search query strings that have returned this image, and
+    a list of tags assigned to this image by the user.
+
+    Duplicate images are detected by comparing the hexdigest of the image to the
+    hexdigests of images already stored in the repository. If a duplicate image is
+    detected, the existing metadata is returned, and the image is not saved again.
+
+    Each call to save_image maintains its connection to the SQLite database, so it
+    is safe to have multiple threads or processes calling save_image concurrently.
     """
 
     METADATA_TABLE_CREATION_QUERY = """
