@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
 import re
+import oon_utilities
 
 from PIL import Image
 from pydantic import BaseModel
@@ -55,14 +56,16 @@ class ImageHasher:
     @staticmethod
     def get_or_create() -> "ImageHasher":
         if ImageHasher._instance is None:
-            ImageHasher.instance = ImageHasher()
+            ImageHasher._instance = ImageHasher()
         return ImageHasher._instance
 
     def __init__(self):
         self._adjectives_resource = (
-            resources.files() / "resources" / "words" / "adjectives.txt"
+            resources.files(oon_utilities) / "resources" / "words" / "adjectives.txt"
         )
-        self._nouns_resource = resources.files() / "resources" / "words" / "nouns.txt"
+        self._nouns_resource = (
+            resources.files(oon_utilities) / "resources" / "words" / "nouns.txt"
+        )
         self._adjectives = None
         self._nouns = None
 
