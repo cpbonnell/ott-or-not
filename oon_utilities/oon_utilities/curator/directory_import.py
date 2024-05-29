@@ -38,9 +38,25 @@ class ImportFileTask:
 
 
 @click.command()
-@click.argument("directory", type=click.Path(exists=True))
-@click.option("--repository-location", "-r", type=click.Path(), default=Path.cwd())
-@click.option("--number-of-workers", "-n", type=int, default=6)
+@click.argument(
+    "directory",
+    type=click.Path(exists=True),
+    help="The directory to import images from.",
+)
+@click.option(
+    "--repository-location",
+    "-r",
+    type=click.Path(),
+    default=Path.cwd(),
+    help="The location of the image repository that the images should be added to.",
+)
+@click.option(
+    "--number-of-workers",
+    "-n",
+    type=int,
+    default=6,
+    help="The number of worker threads to use.",
+)
 def import_directory(
     directory: Path, repository_location: Path, number_of_workers: int
 ) -> None:
