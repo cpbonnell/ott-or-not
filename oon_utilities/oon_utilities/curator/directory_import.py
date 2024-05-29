@@ -4,7 +4,7 @@ into an image repository. The images will be imported in parallel using a thread
 
 Example usage:
 
-    poetry run import-directory \
+    poetry run directory-import \
         /mnt/a/data/ott-or-not \
         --repository-location /mnt/a/data/ott-or-not-image-repository \
         --number-of-workers 6
@@ -65,7 +65,6 @@ class ImportFileTask:
 @click.argument(
     "directory",
     type=click.Path(exists=True),
-    help="The directory to import images from.",
 )
 @click.option(
     "--repository-location",
@@ -82,6 +81,21 @@ class ImportFileTask:
     help="The number of worker threads to use.",
 )
 def main(directory: Path, repository_location: Path, number_of_workers: int) -> None:
+
+    # Make sure our directories are Path objects
+    if isinstance(directory, str):
+        directory = Path(directory)
+
+    if isinstance(repository_location, str):
+        repository_location = Path(repository_location)
+
+    if not repository_location.exists():
+        repository_location.mkdir(parents=True)
+
+    if not directory.exists():
+        raise FileNotFoundError(f"Import directory {directory} does not exist.")
+
+    # Create the image repository
     repository = FileSystemImageRepository(root_directory=repository_location)
     begin_importing_event = threading.Event()
 
