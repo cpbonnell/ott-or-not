@@ -30,3 +30,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 image-fetcher = "oon_utilities.image_fetcher:main"
+directory-import = "oon_utilities.curator.directory_import:main"
