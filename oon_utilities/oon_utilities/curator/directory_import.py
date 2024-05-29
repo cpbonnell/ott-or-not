@@ -63,11 +63,15 @@ def import_directory(
     # Submit all the tasks to the thread pool, keeping track of how many are completed
     # so we can update the progress bar
     print(f"Importing {len(tasks_to_be_done)} images from {directory}...")
+    progress_bar = tqdm(total=len(tasks_to_be_done))
+
     with ThreadPoolExecutor(max_workers=number_of_workers) as thread_pool:
 
         futures = [thread_pool.submit(task) for task in tasks_to_be_done]
+        begin_importing_event.set()
 
-        for future in tqdm(as_completed(futures), total=len(futures)):
-            pass
+        for _ in as_completed(futures):
+            progress_bar.update(1)
 
+    progress_bar.close()
     print("Import complete!")
