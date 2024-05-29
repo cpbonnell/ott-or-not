@@ -1,3 +1,15 @@
+"""
+A module that provides a command line interface for importing images from a directory
+into an image repository. The images will be imported in parallel using a thread pool.
+
+Example usage:
+
+    poetry run import-directory \
+        /mnt/a/data/ott-or-not \
+        --repository-location /mnt/a/data/ott-or-not-image-repository \
+        --number-of-workers 6
+"""
+
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -13,6 +25,18 @@ from oon_utilities.curator.image_repository import (
 
 
 class ImportFileTask:
+    """
+    A class that represents a task to import an image file into an image repository.
+
+    The task does not do any validating of the provided path, and expects the path
+    to already exist, and be of a valid image type.
+
+    Once imported, the image will be saved to the repository with the provided search
+    terms and tags.
+
+    If a hold_until_event is provided, the task will wait until the event is set before
+    beginning the import.
+    """
 
     def __init__(
         self,
@@ -57,9 +81,7 @@ class ImportFileTask:
     default=6,
     help="The number of worker threads to use.",
 )
-def import_directory(
-    directory: Path, repository_location: Path, number_of_workers: int
-) -> None:
+def main(directory: Path, repository_location: Path, number_of_workers: int) -> None:
     repository = FileSystemImageRepository(root_directory=repository_location)
     begin_importing_event = threading.Event()
 
