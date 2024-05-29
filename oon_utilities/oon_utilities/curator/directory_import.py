@@ -3,6 +3,7 @@ from pathlib import Path
 from PIL import Image
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
+import threading
 
 from oon_utilities.curator.image_repository import (
     ImageRepository,
@@ -18,13 +19,19 @@ class ImportFileTask:
         image_filepath: Path,
         search_terms: str | list[str] | None,
         tags: str | list[str] | None,
+        hold_until_event: threading.Event | None = None,
     ) -> None:
         self.repository = repository
         self.image_filepath = image_filepath
         self.search_terms = search_terms
         self.tags = tags
+        self.hold_until_event = hold_until_event
 
     def __call__(self) -> None:
+
+        if self.hold_until_event:
+            self.hold_until_event.wait()
+
         image = Image.open(self.image_filepath)
         self.repository.save_image(image, self.search_terms, self.tags)
 
@@ -37,7 +44,7 @@ def import_directory(
     directory: Path, repository_location: Path, number_of_workers: int
 ) -> None:
     repository = FileSystemImageRepository(root_directory=repository_location)
-    thread_pool = ThreadPoolExecutor(max_workers=number_of_workers)
+    begin_importing_event = threading.Event()
 
     # Get all the files in the directory so we have an idea of how much work there is
     tasks_to_be_done = []
@@ -47,17 +54,19 @@ def import_directory(
             if image_filepath.suffix not in [".jpg", ".jpeg", ".png"]:
                 continue
 
-            task = ImportFileTask(repository, image_filepath, None, None)
+            task = ImportFileTask(
+                repository, image_filepath, None, None, begin_importing_event
+            )
             tasks_to_be_done.append(task)
 
     # Submit all the tasks to the thread pool, keeping track of how many are completed
     # so we can update the progress bar
     print(f"Importing {len(tasks_to_be_done)} images from {directory}...")
-    progress_bar = tqdm(total=len(tasks_to_be_done))
+    with ThreadPoolExecutor(max_workers=number_of_workers) as thread_pool:
 
-    for task in tasks_to_be_done:
-        thread_pool.submit(task)
+        futures = [thread_pool.submit(task) for task in tasks_to_be_done]
 
-    for t in as_completed(tasks_to_be_done):
-        progress_bar.update(1)
-    progress_bar.close()
+        for future in tqdm(as_completed(futures), total=len(futures)):
+            pass
+
+    print("Import complete!")
