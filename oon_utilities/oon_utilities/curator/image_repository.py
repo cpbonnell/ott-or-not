@@ -227,7 +227,8 @@ class FileSystemImageRepository(ImageRepository):
         """
         Save an image to the repository and return its metadata.
 
-        If the image has already been saved, the existing metadata will be returned.
+        If the image is already in the repository, the metadata will be updated but the original
+        image file will not be overwritten.
 
         :param image: The image to save.
         :param search_terms: The search terms that returned this image.
