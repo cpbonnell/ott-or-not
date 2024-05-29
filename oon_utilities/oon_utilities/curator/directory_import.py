@@ -1,13 +1,14 @@
-import click
-from pathlib import Path
-from PIL import Image
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from tqdm import tqdm
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+
+import click
+from PIL import Image
+from tqdm import tqdm
 
 from oon_utilities.curator.image_repository import (
-    ImageRepository,
     FileSystemImageRepository,
+    ImageRepository,
 )
 
 
