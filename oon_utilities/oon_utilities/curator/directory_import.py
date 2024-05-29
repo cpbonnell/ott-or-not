@@ -80,7 +80,17 @@ class ImportFileTask:
     default=6,
     help="The number of worker threads to use.",
 )
-def main(directory: Path, repository_location: Path, number_of_workers: int) -> None:
+@click.option(
+    "--tag-with-parent-directory",
+    is_flag=True,
+    help="If set, the parent directory of the image will be used as a tag.",
+)
+def main(
+    directory: Path,
+    repository_location: Path,
+    number_of_workers: int,
+    tag_with_parent_directory: bool,
+) -> None:
 
     # Make sure our directories are Path objects
     if isinstance(directory, str):
@@ -107,8 +117,13 @@ def main(directory: Path, repository_location: Path, number_of_workers: int) -> 
             if image_filepath.suffix not in [".jpg", ".jpeg", ".png"]:
                 continue
 
+            search_terms = list()
+            tags = list()
+            if tag_with_parent_directory:
+                tags.append(image_filepath.parent.name)
+
             task = ImportFileTask(
-                repository, image_filepath, None, None, begin_importing_event
+                repository, image_filepath, search_terms, tags, begin_importing_event
             )
             tasks_to_be_done.append(task)
 
