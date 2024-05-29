@@ -34,6 +34,20 @@ class ImageMetadata(BaseModel):
     tags: set[str] = set()
     hashwords: Optional[tuple[str, str]] = None
 
+    def update_with(self, other: "ImageMetadata", update_path: bool = False) -> None:
+        """
+        Update this ImageMetadata object with the values from another ImageMetadata object.
+
+        This method is used to update the search_query_strings and tags fields of this object
+        with the values from another object. The hexdigest, and hashwords fields are
+        not updated, as they are considered to be immutable. The filepath field is also
+        not updated by default, but can be updated by setting the update_path parameter to True.
+        """
+        self.search_query_strings.update(other.search_query_strings)
+        self.tags.update(other.tags)
+        if update_path:
+            self.filepath = other.filepath
+
 
 class ImageHasher:
     """
@@ -222,41 +236,33 @@ class FileSystemImageRepository(ImageRepository):
         :return: The metadata for the saved image.
         """
 
-        image_metadata = self.construct_image_metadata(image)
+        new_image_metadata = self.construct_image_metadata(image)
+        existing_metadata = self.get_image_metadata(new_image_metadata.hexdigest)
 
-        # Check if the image has already been saved. If it has and the file exists, return the existing metadata.
-        # If there is a metadata entry but the file does not exist, update the metadata with the new file path
-        # and write the image (saving all other existing metadata for this image hash)
-        existing_metadata = self.get_image_metadata(image_metadata.hexdigest)
+        # Combine all of the metadata for the image.
         if existing_metadata is not None:
-            recorded_filepath = existing_metadata.filepath
+            new_image_metadata.update_with(existing_metadata)
 
-            if recorded_filepath.exists():
-                return existing_metadata
-            else:
-                existing_metadata.filepath = image_metadata.filepath
-                image_metadata = existing_metadata
-
-        # Add the search terms and tags to the metadata.
         if search_terms is not None:
             if isinstance(search_terms, str):
-                image_metadata.search_query_strings.add(search_terms)
-            else:
-                image_metadata.search_query_strings.update(search_terms)
+                search_terms = {search_terms}
+            new_image_metadata.search_query_strings.update(search_terms)
 
         if tags is not None:
             if isinstance(tags, str):
-                image_metadata.tags.add(tags)
-            else:
-                image_metadata.tags.update(tags)
+                tags = {tags}
+            new_image_metadata.tags.update(tags)
 
-        # Check Write the image and metadata to file
-        prepared_insertion_query = self.METADATA_INSERTION_QUERY.format(
-            hexdigest=image_metadata.hexdigest,
-            metadata=image_metadata.model_dump_json(),
-        )
-        image.save(image_metadata.filepath, format="JPEG")
+        # If the image is already on disk, we can skip writing it again.
+        if not new_image_metadata.filepath.exists():
+            image.save(new_image_metadata.filepath, format="JPEG")
+
+        # Save the (possibly updated) metadata to the database.
         with sqlite3.connect(self._db_filepath) as conn:
+            prepared_insertion_query = self.METADATA_INSERTION_QUERY.format(
+                hexdigest=new_image_metadata.hexdigest,
+                metadata=new_image_metadata.model_dump_json(),
+            )
             conn.execute(prepared_insertion_query)
 
-        return image_metadata
+        return new_image_metadata
