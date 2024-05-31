@@ -4,6 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["Christian Bonnell <christian.bonnell@gmail.com>"]
 readme = "README.md"
+include = ["resources/words/*.txt"]
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -21,3 +22,6 @@ pytest = "^8.2.1"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+directory-import = "curator.directory_import:main"
