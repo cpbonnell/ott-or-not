@@ -13,6 +13,11 @@ click = "^8.1.7"
 tqdm = "^4.66.4"
 
 
+[tool.poetry.group.dev.dependencies]
+black = "^24.4.2"
+flake8 = "^7.0.0"
+pytest = "^8.2.1"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
