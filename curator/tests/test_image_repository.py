@@ -3,10 +3,9 @@ from tempfile import TemporaryDirectory
 
 from PIL import Image
 
-from oon_utilities.curator.image_repository import (
+from curator.image_repository import (
     FileSystemImageRepository,
     ImageHasher,
-    ImageMetadata,
     ImageRepository,
 )
 

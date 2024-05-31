@@ -18,7 +18,7 @@ import click
 from PIL import Image
 from tqdm import tqdm
 
-from oon_utilities.curator.image_repository import (
+from curator.image_repository import (
     FileSystemImageRepository,
     ImageRepository,
 )

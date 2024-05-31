@@ -14,8 +14,6 @@ from typing import Optional, override, Collection
 from PIL import Image
 from pydantic import BaseModel
 
-import oon_utilities
-
 
 class ImageMetadata(BaseModel):
     """
@@ -74,11 +72,9 @@ class ImageHasher:
 
     def __init__(self):
         self._adjectives_resource = (
-            resources.files(oon_utilities) / "resources" / "words" / "adjectives.txt"
+            resources.files() / "resources" / "words" / "adjectives.txt"
         )
-        self._nouns_resource = (
-            resources.files(oon_utilities) / "resources" / "words" / "nouns.txt"
-        )
+        self._nouns_resource = resources.files() / "resources" / "words" / "nouns.txt"
         self._adjectives = None
         self._nouns = None
 
