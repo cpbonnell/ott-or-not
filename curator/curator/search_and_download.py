@@ -96,6 +96,20 @@ class Manifest(yaml.YAMLObject):
         return f"{self.__class__.__name__}(settings={self.settings}, searches={self.searches})"
 
 
+def default_manifest_path(
+    ctx: click.Context, param: click.Option, value: Optional[Path]
+) -> Optional[Path]:
+    """
+    If the manifest location is not provided, use the repository location to find the manifest.
+    """
+    if value is not None:
+        return value
+    repository_location = ctx.params.get("repository_location")
+    if repository_location:
+        return Path(repository_location) / "manifest.yaml"
+    return None
+
+
 @click.command()
 @click.option(
     "--repository-location",
@@ -105,18 +119,19 @@ class Manifest(yaml.YAMLObject):
     help="The location of the image repository that the images should be added to.",
 )
 @click.option(
+    "--manifest-location",
+    "-m",
+    type=click.Path(path_type=Path),
+    default=None,
+    callback=default_manifest_path,
+    help="The location of the manifest. Defaults to 'manifest.yaml' in the repository location.",
+)
+@click.option(
     "--number-of-workers",
     "-n",
     type=int,
     default=6,
     help="The number of worker threads to use.",
-)
-@click.option(
-    "--manifest-location",
-    "-m",
-    type=click.Path(path_type=Path),
-    default=Path.cwd() / "manifest.yaml",
-    help="The location of the manifest file that specifies the search terms.",
 )
 @click.option(
     "--log-level",
@@ -126,8 +141,8 @@ class Manifest(yaml.YAMLObject):
 )
 def main(
     repository_location: Path,
-    number_of_workers: int,
     manifest_location: Path,
+    number_of_workers: int,
     log_level: str,
 ) -> None:
 
