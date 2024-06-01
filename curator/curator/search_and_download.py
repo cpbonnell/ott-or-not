@@ -8,17 +8,99 @@ be in the root directory of the repository, although it can also be specified by
 
 Google image search only allows a limited number of search results per numute (1,200), and also limits
 the number of results per search term (100).
+
+Example usage:
+
+    poetry run search \
+        --repository-location /mnt/a/data/ott-or-not-image-repository \
+        --manifest-location /mnt/a/data/ott-or-not-image-repository/manifest.yaml \
+        --number-of-workers 6 \
+        --log-level DEBUG
 """
 
-import click
+import logging
 from pathlib import Path
+from typing import Optional
+
+import click
+import yaml
+
+
+class ImageSearchTask(yaml.YAMLObject):
+    yaml_tag = "!ImageSearchTask"
+
+    def __init__(
+        self, search_term: str, desired_qunatity: int = 100, tags: list[str] = []
+    ):
+        self.search_term = search_term
+        # self.desired_qunatity = desired_qunatity
+        self.tags = tags
+
+        if desired_qunatity > 100:
+            logging.warning(
+                f"Google image search only allows a maximum of 100 results per search term. "
+                f"Limiting the number of results for search term '{search_term}' to 100."
+            )
+            self.desired_qunatity = 100
+        else:
+            self.desired_qunatity = desired_qunatity
+
+    def __repr__(self):
+        return (
+            f"{self.__class__.__name__}("
+            f"search_term={self.search_term}, "
+            f"desired_qunatity={self.desired_qunatity}, "
+            f"tags={self.tags})"
+        )
+
+
+class Settings(yaml.YAMLObject):
+    yaml_tag = "!Settings"
+
+    VALID_SEARCH_PROVIDERS = ["google", "bing"]
+
+    def __init__(
+        self,
+        search_provider: str = "google",
+        api_key: Optional[str] = None,
+        api_secret: Optional[str] = None,
+        rate_limit: Optional[int] = None,
+    ):
+        if search_provider.lower() not in self.VALID_SEARCH_PROVIDERS:
+            raise ValueError(
+                f"Invalid search provider '{search_provider}'. "
+                f"Valid options are {self.VALID_SEARCH_PROVIDERS}."
+            )
+        else:
+            self.search_provider = search_provider.lower()
+
+        self.api_key = api_key
+        self.api_secret = api_secret
+        self.rate_limit = rate_limit
+
+    def __repr__(self):
+        return (
+            f"{self.__class__.__name__}"
+            f"(search_provider={self.search_provider}, rate_limit={self.rate_limit})"
+        )
+
+
+class Manifest(yaml.YAMLObject):
+    yaml_tag = "!Manifest"
+
+    def __init__(self, settings: Settings, searches: list[ImageSearchTask]):
+        self.settings = settings
+        self.searches = searches
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(settings={self.settings}, searches={self.searches})"
 
 
 @click.command()
 @click.option(
     "--repository-location",
     "-r",
-    type=click.Path(),
+    type=click.Path(path_type=Path),
     default=Path.cwd(),
     help="The location of the image repository that the images should be added to.",
 )
@@ -32,13 +114,31 @@ from pathlib import Path
 @click.option(
     "--manifest-location",
     "-m",
-    type=click.Path(),
+    type=click.Path(path_type=Path),
     default=Path.cwd() / "manifest.yaml",
     help="The location of the manifest file that specifies the search terms.",
+)
+@click.option(
+    "--log-level",
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
+    default="INFO",
+    help="The logging level to use.",
 )
 def main(
     repository_location: Path,
     number_of_workers: int,
     manifest_location: Path,
+    log_level: str,
 ) -> None:
-    pass
+
+    # Set the log level based on the command line option
+    logging.basicConfig(level=log_level)
+
+    with manifest_location.open("r") as f:
+        manifest = yaml.load(f, Loader=yaml.Loader)
+
+    logging.info(f"Loaded manifest containing {len(manifest.searches)} searches.")
+
+    logging.debug("===============================\n")
+    logging.debug(manifest)
+    logging.debug("===============================\n")
