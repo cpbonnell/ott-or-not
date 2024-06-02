@@ -19,13 +19,20 @@ Example usage:
 """
 
 import logging
+from io import BytesIO
 from pathlib import Path
 from typing import Optional
 
 import click
+import requests
 import yaml
+from PIL import Image
+from requests.exceptions import ConnectionError, ConnectTimeout, ReadTimeout, SSLError
+
+from curator.image_repository import FileSystemImageRepository, ImageRepository
 
 
+# ========== YAML Classes ==========
 class ImageSearchTask(yaml.YAMLObject):
     yaml_tag = "!ImageSearchTask"
 
@@ -96,6 +103,47 @@ class Manifest(yaml.YAMLObject):
         return f"{self.__class__.__name__}(settings={self.settings}, searches={self.searches})"
 
 
+# ========== Helper Classes ==========
+
+
+class DownloadImageTask:
+
+    def __init__(
+        self,
+        repository: ImageRepository,
+        image_url: str,
+        search_term: str = None,
+        tags: list[str] = [],
+        on_finished_callback: Optional[callable] = None,
+    ):
+        self.repository = repository
+        self.image_url = image_url
+        self.search_term = search_term
+        self.tags = tags
+        self.on_finished_callback = on_finished_callback
+
+    def __call__(self):
+        try:
+            response = requests.get(self.image_url, timeout=5)
+            response.raise_for_status()
+        except (ConnectTimeout, ConnectionError) as e:
+            logging.error(f"Connection error for {self.image_url}: {e}")
+            return
+        except ReadTimeout as e:
+            logging.error(f"Read timeout for {self.image_url}: {e}")
+            return
+        except SSLError as e:
+            logging.error(f"SSL error for {self.image_url}: {e}")
+            return
+
+        image = Image.open(BytesIO(response.content))
+        self.repository.save_image(image, self.search_term, self.tags)
+
+        if self.on_finished_callback:
+            self.on_finished_callback()
+
+
+# ========== Command Line Interface ==========
 def default_manifest_path(
     ctx: click.Context, param: click.Option, value: Optional[Path]
 ) -> Optional[Path]:
@@ -153,7 +201,6 @@ def main(
         shopping_list = yaml.load(f, Loader=yaml.Loader)
 
     logging.info(f"Loaded manifest containing {len(shopping_list.searches)} searches.")
-
     logging.debug("===============================\n")
     logging.debug(shopping_list)
     logging.debug("===============================\n")
