@@ -106,7 +106,7 @@ def default_manifest_path(
         return value
     repository_location = ctx.params.get("repository_location")
     if repository_location:
-        return Path(repository_location) / "manifest.yaml"
+        return Path(repository_location) / "shopping-list.yaml"
     return None
 
 
@@ -119,8 +119,8 @@ def default_manifest_path(
     help="The location of the image repository that the images should be added to.",
 )
 @click.option(
-    "--manifest-location",
-    "-m",
+    "--shopping-list-location",
+    "-s",
     type=click.Path(path_type=Path),
     default=None,
     callback=default_manifest_path,
@@ -141,7 +141,7 @@ def default_manifest_path(
 )
 def main(
     repository_location: Path,
-    manifest_location: Path,
+    shopping_list_location: Path,
     number_of_workers: int,
     log_level: str,
 ) -> None:
@@ -149,11 +149,11 @@ def main(
     # Set the log level based on the command line option
     logging.basicConfig(level=log_level)
 
-    with manifest_location.open("r") as f:
-        manifest = yaml.load(f, Loader=yaml.Loader)
+    with shopping_list_location.open("r") as f:
+        shopping_list = yaml.load(f, Loader=yaml.Loader)
 
-    logging.info(f"Loaded manifest containing {len(manifest.searches)} searches.")
+    logging.info(f"Loaded manifest containing {len(shopping_list.searches)} searches.")
 
     logging.debug("===============================\n")
-    logging.debug(manifest)
+    logging.debug(shopping_list)
     logging.debug("===============================\n")
