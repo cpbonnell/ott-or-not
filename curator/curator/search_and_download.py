@@ -13,9 +13,8 @@ Example usage:
 
     poetry run search \
         --repository-location /mnt/a/data/ott-or-not-image-repository \
-        --manifest-location /mnt/a/data/ott-or-not-image-repository/manifest.yaml \
-        --number-of-workers 6 \
-        --log-level DEBUG
+        --concurrent-downloads 3 \
+        --log-level INFO
 """
 
 import logging
@@ -25,7 +24,7 @@ from pathlib import Path
 from typing import Optional
 
 import click
-import googleapiclient
+from googleapiclient.discovery import build
 import requests
 import yaml
 from PIL import Image
@@ -202,16 +201,16 @@ def main(
     with shopping_list_location.open("r") as f:
         shopping_list: Manifest = yaml.load(f, Loader=yaml.Loader)
 
-    logging.info(f"Loaded manifest containing {len(shopping_list.searches)} searches.")
+    logging.info(
+        f"Loaded shopping list containing {len(shopping_list.searches)} searches."
+    )
     logging.debug("===============================\n")
     logging.debug(shopping_list)
     logging.debug("===============================\n")
 
     # Instantiate the Google search service and the image repository
     repository = FileSystemImageRepository(repository_location)
-    service = googleapiclient.discovery.build(
-        "customsearch", "v1", developerKey=shopping_list.settings.api_key
-    )
+    service = build("customsearch", "v1", developerKey=shopping_list.settings.api_key)
 
     # Execute searches and submit tasks for download
     with ThreadPoolExecutor(max_workers=concurrent_downloads) as executor:
@@ -237,11 +236,17 @@ def main(
                 )
 
                 for item in query_result["items"]:
-                    executor.submit(
-                        DownloadImageTask(
-                            repository=repository,
-                            image_url=item["link"],
-                            search_term=search_request.search_term,
-                            tags=search_request.tags,
+                    query_index += 1
+
+                    # Submit the task to our parallel executor, and save the future to
+                    # the results list.
+                    search_results.append(
+                        executor.submit(
+                            DownloadImageTask(
+                                repository=repository,
+                                image_url=item["link"],
+                                search_term=search_request.search_term,
+                                tags=search_request.tags,
+                            )
                         )
                     )
