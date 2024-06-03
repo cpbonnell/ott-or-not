@@ -19,11 +19,13 @@ Example usage:
 """
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from pathlib import Path
 from typing import Optional
 
 import click
+import googleapiclient
 import requests
 import yaml
 from PIL import Image
@@ -175,8 +177,8 @@ def default_manifest_path(
     help="The location of the manifest. Defaults to 'manifest.yaml' in the repository location.",
 )
 @click.option(
-    "--number-of-workers",
-    "-n",
+    "--concurrent-downloads",
+    "-c",
     type=int,
     default=6,
     help="The number of worker threads to use.",
@@ -190,7 +192,7 @@ def default_manifest_path(
 def main(
     repository_location: Path,
     shopping_list_location: Path,
-    number_of_workers: int,
+    concurrent_downloads: int,
     log_level: str,
 ) -> None:
 
@@ -198,9 +200,47 @@ def main(
     logging.basicConfig(level=log_level)
 
     with shopping_list_location.open("r") as f:
-        shopping_list = yaml.load(f, Loader=yaml.Loader)
+        shopping_list: Manifest = yaml.load(f, Loader=yaml.Loader)
 
     logging.info(f"Loaded manifest containing {len(shopping_list.searches)} searches.")
     logging.debug("===============================\n")
     logging.debug(shopping_list)
     logging.debug("===============================\n")
+
+    # Instantiate the Google search service and the image repository
+    repository = FileSystemImageRepository(repository_location)
+    service = googleapiclient.discovery.build(
+        "customsearch", "v1", developerKey=shopping_list.settings.api_key
+    )
+
+    # Execute searches and submit tasks for download
+    with ThreadPoolExecutor(max_workers=concurrent_downloads) as executor:
+        search_results = list()
+        for search_request in shopping_list.searches:
+            query_index = 0
+            while query_index < search_request.desired_qunatity:
+
+                # Limit batch size to 10 at a time
+                remaining_results = search_request.desired_qunatity - query_index
+                batch_size = remaining_results if remaining_results < 10 else 10
+
+                query_result = (
+                    service.cse()
+                    .list(
+                        q=search_request.search_term,
+                        cx=shopping_list.settings.api_secret,
+                        searchType="image",
+                        num=batch_size,
+                        start=query_index,
+                    )
+                    .execute()
+                )
+
+                for item in query_result["items"]:
+                    executor.submit(
+                        DownloadImageTask(
+                            image_url=item["link"],
+                            search_term=search_request.search_term,
+                            tags=search_request.tags,
+                        )
+                    )
