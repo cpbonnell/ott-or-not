@@ -22,7 +22,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import BytesIO
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Callable
 
 import click
 from googleapiclient.discovery import build
@@ -130,7 +130,7 @@ class ImageDownloadTask:
         image_url: str,
         search_term: str = None,
         tags: list[str] = [],
-        on_finished_callback: Optional[callable[[ImageDownloadResult], None]] = None,
+        on_finished_callback: Optional[Callable[[ImageDownloadResult], None]] = None,
     ):
         self.repository = repository
         self.image_url = image_url
@@ -162,10 +162,11 @@ class ImageDownloadTask:
 
         self.repository.save_image(image, self.search_term, self.tags)
 
+        result = ImageDownloadResult(succeeded=True, url=self.image_url)
         if self.on_finished_callback:
             self.on_finished_callback(result)
 
-        return ImageDownloadResult(succeeded=True, url=self.image_url)
+        return result
 
 
 # ========== Command Line Interface ==========
@@ -297,5 +298,5 @@ def main(
                 )
 
         # Complete notifications after everything is done.
-        logging.info(f"Downloaded {number_downloaded} images.")
         progress_bar.close()
+        logging.info(f"Downloaded {number_downloaded} images.")
