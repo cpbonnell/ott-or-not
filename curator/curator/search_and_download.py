@@ -17,6 +17,7 @@ Example usage:
         --log-level INFO
 """
 
+from dataclasses import dataclass
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import BytesIO
@@ -28,7 +29,7 @@ from googleapiclient.discovery import build
 import requests
 from tqdm import tqdm
 import yaml
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from requests.exceptions import (
     ConnectionError,
     ConnectTimeout,
@@ -114,6 +115,13 @@ class ShoppingList(yaml.YAMLObject):
 # ========== Helper Classes ==========
 
 
+@dataclass(frozen=True)
+class ImageDownloadResult:
+    succeeded: bool
+    reason: Optional[str] = None
+    url: Optional[str] = None
+
+
 class ImageDownloadTask:
 
     def __init__(
@@ -135,20 +143,31 @@ class ImageDownloadTask:
             response = requests.get(self.image_url, timeout=5)
             response.raise_for_status()
         except (ConnectTimeout, ConnectionError, HTTPError) as e:
-            logging.error(f"Connection error for {self.image_url}: {e}")
-            return
+            return ImageDownloadResult(
+                succeeded=False, reason=e.__class__.__name__, url=self.image_url
+            )
         except ReadTimeout as e:
-            logging.error(f"Read timeout for {self.image_url}: {e}")
-            return
+            return ImageDownloadResult(
+                succeeded=False, reason=e.__class__.__name__, url=self.image_url
+            )
         except SSLError as e:
-            logging.error(f"SSL error for {self.image_url}: {e}")
-            return
+            return ImageDownloadResult(
+                succeeded=False, reason=e.__class__.__name__, url=self.image_url
+            )
 
-        image = Image.open(BytesIO(response.content))
+        try:
+            image = Image.open(BytesIO(response.content))
+        except UnidentifiedImageError as e:
+            return ImageDownloadResult(
+                succeeded=False, reason=e.__class__.__name__, url=self.image_url
+            )
+
         self.repository.save_image(image, self.search_term, self.tags)
 
         if self.on_finished_callback:
             self.on_finished_callback()
+
+        return ImageDownloadResult(succeeded=True, url=self.image_url)
 
 
 # ========== Command Line Interface ==========
@@ -271,8 +290,12 @@ def main(
         # Wait for all tasks to complete
         number_downloaded = 0
         for future in as_completed(search_results):
-            future.result()
+            result = future.result()
             number_downloaded += 1
+            if not result.succeeded:
+                logging.warning(
+                    f"Failed to download image from {result.url}. Reason: {result.reason}"
+                )
 
         # Complete notifications after everything is done.
         logging.info(f"Downloaded {number_downloaded} images.")
