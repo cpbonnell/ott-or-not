@@ -41,8 +41,8 @@ from curator.image_repository import FileSystemImageRepository, ImageRepository
 
 
 # ========== YAML Classes ==========
-class ImageSearchTask(yaml.YAMLObject):
-    yaml_tag = "!ImageSearchTask"
+class ImageSearchRequest(yaml.YAMLObject):
+    yaml_tag = "!ImageSearchRequest"
 
     def __init__(
         self, search_term: str, desired_quantity: int = 100, tags: list[str] = []
@@ -100,10 +100,10 @@ class Settings(yaml.YAMLObject):
         )
 
 
-class Manifest(yaml.YAMLObject):
-    yaml_tag = "!Manifest"
+class ShoppingList(yaml.YAMLObject):
+    yaml_tag = "!ShoppingList"
 
-    def __init__(self, settings: Settings, searches: list[ImageSearchTask]):
+    def __init__(self, settings: Settings, searches: list[ImageSearchRequest]):
         self.settings = settings
         self.searches = searches
 
@@ -114,7 +114,7 @@ class Manifest(yaml.YAMLObject):
 # ========== Helper Classes ==========
 
 
-class DownloadImageTask:
+class ImageDownloadTask:
 
     def __init__(
         self,
@@ -206,7 +206,7 @@ def main(
     logging.basicConfig(level=log_level)
 
     with shopping_list_location.open("r") as f:
-        shopping_list: Manifest = yaml.load(f, Loader=yaml.Loader)
+        shopping_list: ShoppingList = yaml.load(f, Loader=yaml.Loader)
 
     logging.info(
         f"Loaded shopping list containing {len(shopping_list.searches)} searches."
@@ -258,7 +258,7 @@ def main(
                     # the results list.
                     search_results.append(
                         executor.submit(
-                            DownloadImageTask(
+                            ImageDownloadTask(
                                 repository=repository,
                                 image_url=item["link"],
                                 search_term=search_request.search_term,
@@ -274,5 +274,6 @@ def main(
             future.result()
             number_downloaded += 1
 
+        # Complete notifications after everything is done.
         logging.info(f"Downloaded {number_downloaded} images.")
         progress_bar.close()
