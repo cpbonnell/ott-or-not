@@ -18,7 +18,7 @@ Example usage:
 """
 
 import logging
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import BytesIO
 from pathlib import Path
 from typing import Optional
@@ -26,9 +26,16 @@ from typing import Optional
 import click
 from googleapiclient.discovery import build
 import requests
+from tqdm import tqdm
 import yaml
 from PIL import Image
-from requests.exceptions import ConnectionError, ConnectTimeout, ReadTimeout, SSLError
+from requests.exceptions import (
+    ConnectionError,
+    ConnectTimeout,
+    ReadTimeout,
+    SSLError,
+    HTTPError,
+)
 
 from curator.image_repository import FileSystemImageRepository, ImageRepository
 
@@ -127,7 +134,7 @@ class DownloadImageTask:
         try:
             response = requests.get(self.image_url, timeout=5)
             response.raise_for_status()
-        except (ConnectTimeout, ConnectionError) as e:
+        except (ConnectTimeout, ConnectionError, HTTPError) as e:
             logging.error(f"Connection error for {self.image_url}: {e}")
             return
         except ReadTimeout as e:
@@ -212,6 +219,15 @@ def main(
     repository = FileSystemImageRepository(repository_location)
     service = build("customsearch", "v1", developerKey=shopping_list.settings.api_key)
 
+    # Prep progress bar
+    estimated_total_images = sum(
+        search.desired_quantity for search in shopping_list.searches
+    )
+    progress_bar = tqdm(total=estimated_total_images, desc="Downloading images")
+
+    def callback_update_progress_bar():
+        progress_bar.update(1)
+
     # Execute searches and submit tasks for download
     with ThreadPoolExecutor(max_workers=concurrent_downloads) as executor:
         search_results = list()
@@ -247,6 +263,16 @@ def main(
                                 image_url=item["link"],
                                 search_term=search_request.search_term,
                                 tags=search_request.tags,
+                                on_finished_callback=callback_update_progress_bar,
                             )
                         )
                     )
+
+        # Wait for all tasks to complete
+        number_downloaded = 0
+        for future in as_completed(search_results):
+            future.result()
+            number_downloaded += 1
+
+        logging.info(f"Downloaded {number_downloaded} images.")
+        progress_bar.close()
