@@ -39,26 +39,26 @@ class ImageSearchTask(yaml.YAMLObject):
     yaml_tag = "!ImageSearchTask"
 
     def __init__(
-        self, search_term: str, desired_qunatity: int = 100, tags: list[str] = []
+        self, search_term: str, desired_quantity: int = 100, tags: list[str] = []
     ):
         self.search_term = search_term
-        # self.desired_qunatity = desired_qunatity
+        self.desired_quantity = desired_quantity
         self.tags = tags
 
-        if desired_qunatity > 100:
+        if desired_quantity > 100:
             logging.warning(
                 f"Google image search only allows a maximum of 100 results per search term. "
                 f"Limiting the number of results for search term '{search_term}' to 100."
             )
-            self.desired_qunatity = 100
+            self.desired_quantity = 100
         else:
-            self.desired_qunatity = desired_qunatity
+            self.desired_quantity = desired_quantity
 
     def __repr__(self):
         return (
             f"{self.__class__.__name__}("
             f"search_term={self.search_term}, "
-            f"desired_qunatity={self.desired_qunatity}, "
+            f"desired_quantity={self.desired_quantity}, "
             f"tags={self.tags})"
         )
 
@@ -218,10 +218,10 @@ def main(
         search_results = list()
         for search_request in shopping_list.searches:
             query_index = 0
-            while query_index < search_request.desired_qunatity:
+            while query_index < search_request.desired_quantity:
 
                 # Limit batch size to 10 at a time
-                remaining_results = search_request.desired_qunatity - query_index
+                remaining_results = search_request.desired_quantity - query_index
                 batch_size = remaining_results if remaining_results < 10 else 10
 
                 query_result = (
