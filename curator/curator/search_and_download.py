@@ -239,6 +239,7 @@ def main(
                 for item in query_result["items"]:
                     executor.submit(
                         DownloadImageTask(
+                            repository=repository,
                             image_url=item["link"],
                             search_term=search_request.search_term,
                             tags=search_request.tags,
