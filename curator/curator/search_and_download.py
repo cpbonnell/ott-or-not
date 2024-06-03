@@ -289,8 +289,9 @@ def main(
         number_downloaded = 0
         for future in as_completed(search_results):
             result = future.result()
-            number_downloaded += 1
-            if not result.succeeded:
+            if result.succeeded:
+                number_downloaded += 1
+            else:
                 logging.warning(
                     f"Failed to download image from {result.url}. Reason: {result.reason}"
                 )
