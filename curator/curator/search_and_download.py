@@ -130,7 +130,7 @@ class ImageDownloadTask:
         image_url: str,
         search_term: str = None,
         tags: list[str] = [],
-        on_finished_callback: Optional[callable] = None,
+        on_finished_callback: Optional[callable[[ImageDownloadResult], None]] = None,
     ):
         self.repository = repository
         self.image_url = image_url
@@ -142,30 +142,28 @@ class ImageDownloadTask:
         try:
             response = requests.get(self.image_url, timeout=5)
             response.raise_for_status()
-        except (ConnectTimeout, ConnectionError, HTTPError) as e:
-            return ImageDownloadResult(
+        except (ConnectTimeout, ConnectionError, HTTPError, ReadTimeout, SSLError) as e:
+            result = ImageDownloadResult(
                 succeeded=False, reason=e.__class__.__name__, url=self.image_url
             )
-        except ReadTimeout as e:
-            return ImageDownloadResult(
-                succeeded=False, reason=e.__class__.__name__, url=self.image_url
-            )
-        except SSLError as e:
-            return ImageDownloadResult(
-                succeeded=False, reason=e.__class__.__name__, url=self.image_url
-            )
+            if self.on_finished_callback:
+                self.on_finished_callback(result)
+            return result
 
         try:
             image = Image.open(BytesIO(response.content))
         except UnidentifiedImageError as e:
-            return ImageDownloadResult(
+            result = ImageDownloadResult(
                 succeeded=False, reason=e.__class__.__name__, url=self.image_url
             )
+            if self.on_finished_callback:
+                self.on_finished_callback(result)
+            return result
 
         self.repository.save_image(image, self.search_term, self.tags)
 
         if self.on_finished_callback:
-            self.on_finished_callback()
+            self.on_finished_callback(result)
 
         return ImageDownloadResult(succeeded=True, url=self.image_url)
 
@@ -244,7 +242,7 @@ def main(
     )
     progress_bar = tqdm(total=estimated_total_images, desc="Downloading images")
 
-    def callback_update_progress_bar():
+    def callback_update_progress_bar(result: ImageDownloadResult):
         progress_bar.update(1)
 
     # Execute searches and submit tasks for download
