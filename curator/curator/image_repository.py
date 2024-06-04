@@ -147,7 +147,13 @@ class ImageRepository(ABC):
             hashwords=(adjective, noun),
         )
 
-    def save_image(self, image: Image.Image, **kwargs) -> bool:
+    def save_image(
+        self,
+        image: Image.Image,
+        search_terms: str | Collection[str] | None = None,
+        tags: str | Collection[str] | None = None,
+        **kwargs,
+    ) -> bool:
         raise NotImplementedError
 
     def get_image_metadata(self, hexdigest: str) -> Optional[ImageMetadata]:
