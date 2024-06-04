@@ -126,3 +126,47 @@ def info(ctx: click.Context, shopping_list_location: Optional[Path]):
         shopping_list_location = repository_location / "shopping-list.yaml"
 
     check_repository_info(repository_location, shopping_list_location)
+
+
+@cli_group.command(name="init")
+@click.argument(
+    "component",
+    type=click.Choice(["repository", "shopping-list", "all"]),
+)
+@click.pass_context
+def init(ctx: click.Context, component: str):
+    from curator.repo_utilities import create_sample_shopping_list
+    from curator.image_repository import FileSystemImageRepository
+    import yaml
+
+    console = Console()
+    GREEN_CHECK = "\u2705"
+
+    repository_location = ctx.obj["repository_location"]
+
+    # Initialize repository directory if it does not exist
+    if not repository_location.exists():
+        repository_location.mkdir(parents=True)
+        console.print(
+            f"{GREEN_CHECK} The repository directory has been created at {repository_location}."
+        )
+
+    # Initialize a database file if needed (FileSystemRepository does this
+    # as part of being instantiated)
+    if component in ["repository", "all"]:
+        fsir = FileSystemImageRepository(root_directory=repository_location)
+        console.print(
+            f"{GREEN_CHECK} A database of image metadata has been created at {fsir.db_filepath}."
+        )
+
+    # Initialize a YAML filw with a sample shopping list
+    if component in ["shopping-list", "all"]:
+        shopping_list_location = repository_location / "shopping-list.yaml"
+        sample_shopping_list = create_sample_shopping_list()
+
+        with open(shopping_list_location, "w") as file:
+            file.write(yaml.dump(sample_shopping_list))
+
+        console.print(
+            f"{GREEN_CHECK} A sample shopping list has been created in the file {shopping_list_location}."
+        )

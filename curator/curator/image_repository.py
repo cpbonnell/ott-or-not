@@ -201,8 +201,8 @@ class FileSystemImageRepository(ImageRepository):
         self._root_directory = Path(root_directory)
 
         # Identify the database file for this repository, and ensure that the metadata table exists.
-        self._db_filepath = self._root_directory / "image_metadata_repository.db"
-        with sqlite3.connect(self._db_filepath) as conn:
+        self.db_filepath = self._root_directory / "image_metadata_repository.db"
+        with sqlite3.connect(self.db_filepath) as conn:
             conn.execute(self.METADATA_TABLE_CREATION_QUERY)
 
     @override
@@ -210,7 +210,7 @@ class FileSystemImageRepository(ImageRepository):
         """
         Retrieve the metadata for an image with the given hexdigest.
         """
-        with sqlite3.connect(self._db_filepath) as conn:
+        with sqlite3.connect(self.db_filepath) as conn:
             result = conn.execute(
                 self.METADATA_GET_QUERY.format(hexdigest=hexdigest)
             ).fetchone()
@@ -261,7 +261,7 @@ class FileSystemImageRepository(ImageRepository):
             image.save(new_image_metadata.filepath, format="JPEG")
 
         # Save the (possibly updated) metadata to the database.
-        with sqlite3.connect(self._db_filepath) as conn:
+        with sqlite3.connect(self.db_filepath) as conn:
             prepared_insertion_query = self.METADATA_INSERTION_QUERY.format(
                 hexdigest=new_image_metadata.hexdigest,
                 metadata=new_image_metadata.model_dump_json(),

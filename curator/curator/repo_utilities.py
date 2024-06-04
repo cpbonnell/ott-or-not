@@ -124,3 +124,19 @@ class ShoppingList(yaml.YAMLObject):
 
     def __repr__(self):
         return f"{self.__class__.__name__}(settings={self.settings}, searches={self.searches})"
+
+
+def create_sample_shopping_list() -> ShoppingList:
+    settings = Settings(
+        search_provider="google", rate_limit=100, api_key="123456", api_secret="abcdef"
+    )
+    search1 = ImageSearchRequest(
+        search_term="cat", desired_quantity=10, tags=["animal"]
+    )
+    search2 = ImageSearchRequest(
+        search_term="dog", desired_quantity=10, tags=["animal"]
+    )
+
+    shopping_list = ShoppingList(settings=settings, searches=[search1, search2])
+
+    return shopping_list
