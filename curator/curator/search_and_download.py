@@ -17,26 +17,26 @@ Example usage:
         --log-level INFO
 """
 
-from dataclasses import dataclass
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import Optional, Callable
+from typing import Callable, Optional
 
 import click
-from googleapiclient.discovery import build
 import requests
-from tqdm import tqdm
 import yaml
+from googleapiclient.discovery import build
 from PIL import Image, UnidentifiedImageError
 from requests.exceptions import (
     ConnectionError,
     ConnectTimeout,
+    HTTPError,
     ReadTimeout,
     SSLError,
-    HTTPError,
 )
+from tqdm import tqdm
 
 from curator.image_repository import FileSystemImageRepository, ImageRepository
 
@@ -132,6 +132,19 @@ class ImageDownloadTask:
         tags: list[str] = [],
         on_finished_callback: Optional[Callable[[ImageDownloadResult], None]] = None,
     ):
+        """
+        A class to represent the task of downloading an image from a URL and adding it to the repository.
+
+        The on_finished_callback parameter is a callback function that will be called when the task is
+        complete or an error is raised. It takes a single parameter, which is the ImageDownloadResult
+        that will be returned from the function.
+
+        :param repository:  The image repository to add the image to.
+        :param image_url:  The URL of the image to download.
+        :param search_term:  The search term used to find the image.
+        :param tags:  A list of tags to associate with the image.
+        :param on_finished_callback:  A callback function to call when all work is done.
+        """
         self.repository = repository
         self.image_url = image_url
         self.search_term = search_term
