@@ -104,3 +104,58 @@ def search(
         shopping_list_location = repository_location / "shopping-list.yaml"
 
     main(repository_location, shopping_list_location, concurrent_downloads, log_level)
+
+
+@cli_group.command(name="info")
+@click.option(
+    "--shopping-list-location",
+    "-s",
+    type=click.Path(path_type=Path),
+    default=None,
+    callback=default_manifest_path,
+    help="The location of the manifest. Defaults to 'manifest.yaml' in the repository location.",
+)
+@click.pass_context
+def info(ctx: click.Context, shopping_list_location: Optional[Path]):
+
+    console = Console()
+    green_check = "\u2705"
+    red_cross = "\u274C"
+
+    # Idenfity the repository location, and the file path of the shopping list
+    # and the database file.
+    repository_location = ctx.obj["repository_location"]
+
+    if not shopping_list_location:
+        shopping_list_location = repository_location / "shopping-list.yaml"
+
+    database_location = repository_location / "image_metadata_repository.db"
+
+    # Check if the repository location exists and whether the files have been initialized
+    if repository_location.exists():
+        repository_status = green_check
+    else:
+        repository_status = red_cross
+
+    if shopping_list_location.exists():
+        sl_status = green_check
+    else:
+        sl_status = red_cross
+
+    if database_location.exists():
+        database_status = green_check
+    else:
+        database_status = red_cross
+
+    console.print(repository_status + f" Repository directory: {repository_location}")
+    console.print(sl_status + f" Shopping list file: {shopping_list_location}")
+    console.print(database_status + f" Database location: {database_location}")
+
+    if all(
+        [
+            repository_location.exists(),
+            shopping_list_location.exists(),
+            database_location.exists(),
+        ]
+    ):
+        console.print("The repository exists and has been initialized.")
