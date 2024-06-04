@@ -117,7 +117,7 @@ def search(
 )
 @click.pass_context
 def info(ctx: click.Context, shopping_list_location: Optional[Path]):
-    from curator.repo_utilities import check_repo_exists
+    from curator.repo_utilities import check_repository_info
 
     # Idenfity the repository location and the shopping list location.
     repository_location = ctx.obj["repository_location"]
@@ -125,4 +125,4 @@ def info(ctx: click.Context, shopping_list_location: Optional[Path]):
     if not shopping_list_location:
         shopping_list_location = repository_location / "shopping-list.yaml"
 
-    check_repo_exists(repository_location, shopping_list_location)
+    check_repository_info(repository_location, shopping_list_location)
