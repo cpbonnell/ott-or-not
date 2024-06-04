@@ -1,23 +1,33 @@
 import click
 from pathlib import Path
+from rich.console import Console
+from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 @click.group()
-def cli_group():
-    pass
+@click.option(
+    "--repository-location",
+    "-r",
+    type=click.Path(path_type=Path),
+    default=Path.cwd(),
+    envvar="CURATOR_REPOSITORY_LOCATION",
+    help="The location of the image repository that the images should be added to.",
+)
+@click.pass_context
+def cli_group(ctx: click.Context, repository_location: Path):
+    # Note: The repository location can come from the environment
+    # variable CURATOR_REPOSITORY_LOCATION
+
+    ctx.obj = {"repository_location": repository_location}
 
 
 @cli_group.command(name="import-directory")
 @click.argument(
     "directory",
     type=click.Path(exists=True),
-)
-@click.option(
-    "--repository-location",
-    "-r",
-    type=click.Path(),
-    default=Path.cwd(),
-    help="The location of the image repository that the images should be added to.",
 )
 @click.option(
     "--number-of-workers",
@@ -31,14 +41,16 @@ def cli_group():
     is_flag=True,
     help="If set, the parent directory of the image will be used as a tag.",
 )
+@click.pass_context
 def import_directory(
+    ctx: click.Context,
     directory: Path,
-    repository_location: Path,
     number_of_workers: int,
     tag_with_parent_directory: bool,
 ):
     from curator.directory_import import main
 
+    repository_location = ctx.obj["repository_location"]
     main(directory, repository_location, number_of_workers, tag_with_parent_directory)
 
 
@@ -57,13 +69,6 @@ def default_manifest_path(
 
 
 @cli_group.command(name="search")
-@click.option(
-    "--repository-location",
-    "-r",
-    type=click.Path(path_type=Path),
-    default=Path.cwd(),
-    help="The location of the image repository that the images should be added to.",
-)
 @click.option(
     "--shopping-list-location",
     "-s",
@@ -85,12 +90,17 @@ def default_manifest_path(
     default="INFO",
     help="The logging level to use.",
 )
+@click.pass_context
 def search(
-    repository_location: Path,
-    shopping_list_location: Path,
+    ctx: click.Context,
+    shopping_list_location: Optional[Path],
     concurrent_downloads: int,
     log_level: str,
 ):
     from curator.search import main
+
+    repository_location = ctx.obj["repository_location"]
+    if not shopping_list_location:
+        shopping_list_location = repository_location / "shopping-list.yaml"
 
     main(repository_location, shopping_list_location, concurrent_downloads, log_level)
