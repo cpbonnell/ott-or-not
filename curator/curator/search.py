@@ -24,7 +24,6 @@ from io import BytesIO
 from pathlib import Path
 from typing import Callable, Optional
 
-import click
 import requests
 import yaml
 from googleapiclient.discovery import build
@@ -182,50 +181,6 @@ class ImageDownloadTask:
         return result
 
 
-# ========== Command Line Interface ==========
-def default_manifest_path(
-    ctx: click.Context, param: click.Option, value: Optional[Path]
-) -> Optional[Path]:
-    """
-    If the manifest location is not provided, use the repository location to find the manifest.
-    """
-    if value is not None:
-        return value
-    repository_location = ctx.params.get("repository_location")
-    if repository_location:
-        return Path(repository_location) / "shopping-list.yaml"
-    return None
-
-
-@click.command()
-@click.option(
-    "--repository-location",
-    "-r",
-    type=click.Path(path_type=Path),
-    default=Path.cwd(),
-    help="The location of the image repository that the images should be added to.",
-)
-@click.option(
-    "--shopping-list-location",
-    "-s",
-    type=click.Path(path_type=Path),
-    default=None,
-    callback=default_manifest_path,
-    help="The location of the manifest. Defaults to 'manifest.yaml' in the repository location.",
-)
-@click.option(
-    "--concurrent-downloads",
-    "-c",
-    type=int,
-    default=6,
-    help="The number of worker threads to use.",
-)
-@click.option(
-    "--log-level",
-    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
-    default="INFO",
-    help="The logging level to use.",
-)
 def main(
     repository_location: Path,
     shopping_list_location: Path,
