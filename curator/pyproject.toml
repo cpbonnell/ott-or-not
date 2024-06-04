@@ -29,3 +29,4 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.scripts]
 directory-import = "curator.directory_import:main"
 search = "curator.search_and_download:main"
+curator = "curator.cli:cli_group"
