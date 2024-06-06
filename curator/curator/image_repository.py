@@ -226,10 +226,10 @@ class FileSystemImageRepository(ImageRepository):
 
     COUNT_OF_IMAGES_BY_TAG_QUERY = """
     with by_tag as (
-        select ID, json_extract(metadata, '$.tags') as tags
+        select hexdigest, json_extract(metadata, '$.tags') as tags
         from image_metadata
     )
-    SELECT json_each.value as tag, count(by_tag.key)
+    SELECT json_each.value as tag, count(by_tag.hexdigest)
     FROM by_tag, json_each(by_tag.tags)
     GROUP BY json_each.value
     """
@@ -348,14 +348,13 @@ class FileSystemImageRepository(ImageRepository):
         (including zero counts for tags that are not present in the repository). If no tags
         are provided, the counts for all tags in the repository will be returned.
         """
-        distinct_tags = set(tags)
 
         with sqlite3.connect(self.db_filepath) as conn:
             results = conn.execute(self.COUNT_OF_IMAGES_BY_TAG_QUERY).fetchall()
 
         tag_count_dict = {tag: count for tag, count in results}
-        if tags is not None:
-            distinct_dags = tag_count_dict.keys()
+        if tags is None:
+            distinct_tags = tag_count_dict.keys()
         else:
             distinct_tags = set(tags)
 
