@@ -261,11 +261,12 @@ class FileSystemImageRepository(ImageRepository):
             image.save(new_image_metadata.filepath, format="JPEG")
 
         # Save the (possibly updated) metadata to the database.
+        prepared_insertion_query = self.METADATA_INSERTION_QUERY.format(
+            hexdigest=new_image_metadata.hexdigest,
+            metadata=new_image_metadata.model_dump_json(),
+        )
+
         with sqlite3.connect(self.db_filepath) as conn:
-            prepared_insertion_query = self.METADATA_INSERTION_QUERY.format(
-                hexdigest=new_image_metadata.hexdigest,
-                metadata=new_image_metadata.model_dump_json(),
-            )
             conn.execute(prepared_insertion_query)
 
         return new_image_metadata
