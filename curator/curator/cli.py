@@ -24,7 +24,9 @@ def cli_group(ctx: click.Context, repository_location: Path):
     ctx.obj = {"repository_location": repository_location}
 
 
-@cli_group.command(name="import-directory")
+@cli_group.command(
+    name="import-directory", help="Import images from a directory into the repository."
+)
 @click.argument(
     "directory",
     type=click.Path(exists=True),
@@ -68,7 +70,9 @@ def default_manifest_path(
     return None
 
 
-@cli_group.command(name="search")
+@cli_group.command(
+    name="search", help="Search for images online and add them to the repository."
+)
 @click.option(
     "--shopping-list-location",
     "-s",
@@ -106,7 +110,9 @@ def search(
     main(repository_location, shopping_list_location, concurrent_downloads, log_level)
 
 
-@cli_group.command(name="info")
+@cli_group.command(
+    name="info", help="Display information about the components of the repository."
+)
 @click.option(
     "--shopping-list-location",
     "-s",
@@ -128,7 +134,7 @@ def info(ctx: click.Context, shopping_list_location: Optional[Path]):
     check_repository_info(repository_location, shopping_list_location)
 
 
-@cli_group.command(name="init")
+@cli_group.command(name="init", help="Initialize a new repository.")
 @click.argument(
     "component",
     type=click.Choice(["repository", "shopping-list", "all"]),
@@ -172,7 +178,7 @@ def init(ctx: click.Context, component: str):
         )
 
 
-@cli_group.command(name="inventory")
+@cli_group.command(name="inventory", help="Count of images with each tag.")
 @click.pass_context
 def inventory(ctx: click.Context):
     from curator.inventory import main
@@ -180,3 +186,36 @@ def inventory(ctx: click.Context):
     repository_location = ctx.obj["repository_location"]
 
     main(repository_location)
+
+
+@cli_group.command(
+    name="dataset", help="Create a new dataset from the images in the repository."
+)
+@click.option(
+    "--output-location",
+    "-o",
+    type=click.Path(path_type=Path),
+    help="The location where the dataset should be constructed.",
+)
+@click.argument(
+    "classes",
+    type=click.STRING,
+    nargs=-1,
+)
+@click.pass_context
+def dataset(ctx: click.Context, output_location: Path, classes: list[str]):
+    from curator.dataset import main
+
+    repository_location = ctx.obj["repository_location"]
+
+    # Raise an error if the output directory is the same as the repository directory
+    if output_location == repository_location:
+        raise click.ClickException(
+            "The output location cannot be the same as the repository location."
+        )
+
+    # Raise an error if there are fewer than 2 classes specified
+    if len(classes) < 2:
+        raise click.ClickException("At least two classes must be specified.")
+
+    main(repository_location, output_location, classes)
