@@ -180,3 +180,33 @@ def inventory(ctx: click.Context):
     repository_location = ctx.obj["repository_location"]
 
     main(repository_location)
+
+
+@cli_group.command(
+    name="dataset", help="Create a new dataset from the images in the repository."
+)
+@click.option(
+    "--output-location",
+    "-o",
+    type=click.Path(path_type=Path),
+    help="The location where the dataset should be constructed.",
+)
+@click.argument(
+    "classes",
+    type=click.STRING,
+    nargs=-1,
+    help="List of tags to be used as the classes for the resulting dataset.",
+)
+@click.pass_context
+def dataset(ctx: click.Context, output_location: Path, classes: list[str]):
+    from curator.dataset import main
+
+    repository_location = ctx.obj["repository_location"]
+
+    # Raise an error if the output directory is the same as the repository directory
+    if output_location == repository_location:
+        raise click.ClickException(
+            "The output location cannot be the same as the repository location."
+        )
+
+    main(repository_location, output_location, classes)
