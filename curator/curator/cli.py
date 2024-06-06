@@ -215,4 +215,8 @@ def dataset(ctx: click.Context, output_location: Path, classes: list[str]):
             "The output location cannot be the same as the repository location."
         )
 
+    # Raise an error if there are fewer than 2 classes specified
+    if len(classes) < 2:
+        raise click.ClickException("At least two classes must be specified.")
+
     main(repository_location, output_location, classes)
