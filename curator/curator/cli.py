@@ -173,7 +173,10 @@ def init(ctx: click.Context, component: str):
 
 
 @cli_group.command(name="inventory")
-def inventory():
+@click.pass_context
+def inventory(ctx: click.Context):
     from curator.inventory import main
 
-    main()
+    repository_location = ctx.obj["repository_location"]
+
+    main(repository_location)
