@@ -159,6 +159,9 @@ class ImageRepository(ABC):
     def get_image_metadata(self, hexdigest: str) -> Optional[ImageMetadata]:
         raise NotImplementedError
 
+    def get_image_metadata_by_tag(self, tags: Collection[str]) -> list[ImageMetadata]:
+        raise NotImplementedError
+
 
 class FileSystemImageRepository(ImageRepository):
     """
@@ -194,6 +197,16 @@ class FileSystemImageRepository(ImageRepository):
 
     METADATA_GET_QUERY = """
     SELECT metadata FROM image_metadata WHERE hexdigest = '{hexdigest}'
+    """
+
+    METADATA_GET_BY_TAG_QUERY = """
+    WITH by_tag AS (
+        select metadata, json_extract(metadata, '$.tags') as tag
+        from image_metadata
+    )
+    SELECT DISTINCT metadata 
+    FROM by_tag, json_each(tag) 
+    WHERE json_each.value in ({relevant_tags_str})
     """
 
     def __init__(self, root_directory: Path | str) -> None:
@@ -271,3 +284,19 @@ class FileSystemImageRepository(ImageRepository):
             conn.execute(prepared_insertion_query)
 
         return new_image_metadata
+
+    @override
+    def get_image_metadata_by_tag(self, tags: Collection[str]) -> list[ImageMetadata]:
+        """
+        Retrieve all images with at least one of the specified tags.
+        """
+        relevant_tags_str = ", ".join([f"'{tag}'" for tag in tags])
+
+        prepared_query = self.METADATA_GET_BY_TAG_QUERY.format(
+            relevant_tags_str=relevant_tags_str
+        )
+
+        with sqlite3.connect(self.db_filepath) as conn:
+            results = conn.execute(prepared_query).fetchall()
+
+        return [ImageMetadata.model_validate_json(result[0]) for result in results]
