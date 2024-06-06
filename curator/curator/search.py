@@ -183,15 +183,24 @@ def main(
 
         # Wait for all tasks to complete
         number_downloaded = 0
+        failed_results = []
         for future in as_completed(search_results):
             result = future.result()
             if result.succeeded:
                 number_downloaded += 1
             else:
-                logging.warning(
-                    f"Failed to download image from {result.url}. Reason: {result.reason}"
-                )
+                failed_results.append(result)
 
         # Complete notifications after everything is done.
         progress_bar.close()
         logging.info(f"Downloaded {number_downloaded} images.")
+
+        # Log any failed downloads
+        if failed_results:
+            logging.warning(
+                f"Failed to download {len(failed_results)} images. The URLs are:"
+            )
+            for result in failed_results:
+                logging.warning(
+                    f"Failed to download image from {result.url}. Reason: {result.reason}"
+                )
