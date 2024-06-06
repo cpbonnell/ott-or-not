@@ -214,9 +214,10 @@ class FileSystemImageRepository(ImageRepository):
             result = conn.execute(
                 self.METADATA_GET_QUERY.format(hexdigest=hexdigest)
             ).fetchone()
-            if result is None:
-                return None
-            return ImageMetadata.model_validate_json(result[0])
+
+        if result is None:
+            return None
+        return ImageMetadata.model_validate_json(result[0])
 
     @override
     def save_image(
