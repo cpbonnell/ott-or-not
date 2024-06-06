@@ -210,7 +210,7 @@ class FileSystemImageRepository(ImageRepository):
 
     METADATA_GET_BY_TAG_QUERY = """
     WITH by_tag AS (
-        select metadata, json_extract(metadata, '$.tags') as tag
+        select hexdigest, metadata, json_extract(metadata, '$.tags') as tag
         from image_metadata
     ),
     forbidden_ids AS(

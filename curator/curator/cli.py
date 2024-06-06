@@ -201,7 +201,6 @@ def inventory(ctx: click.Context):
     "classes",
     type=click.STRING,
     nargs=-1,
-    help="List of tags to be used as the classes for the resulting dataset.",
 )
 @click.pass_context
 def dataset(ctx: click.Context, output_location: Path, classes: list[str]):
