@@ -159,6 +159,18 @@ class ImageRepository(ABC):
     def get_image_metadata(self, hexdigest: str) -> Optional[ImageMetadata]:
         raise NotImplementedError
 
+    def get_image_metadata_by_tag(
+        self,
+        tags: Collection[str] | None = None,
+        exclude_tags: Collection[str] | None = None,
+    ) -> list[ImageMetadata]:
+        raise NotImplementedError
+
+    def get_count_of_images_by_tag(
+        self, tags: Collection[str] | None = None
+    ) -> dict[str, int]:
+        raise NotImplementedError
+
 
 class FileSystemImageRepository(ImageRepository):
     """
@@ -196,6 +208,32 @@ class FileSystemImageRepository(ImageRepository):
     SELECT metadata FROM image_metadata WHERE hexdigest = '{hexdigest}'
     """
 
+    METADATA_GET_BY_TAG_QUERY = """
+    WITH by_tag AS (
+        select metadata, json_extract(metadata, '$.tags') as tag
+        from image_metadata
+    ),
+    forbidden_ids AS(
+        SELECT DISTINCT hexdigest
+        FROM by_tag, json_each(tag)
+        WHERE json_each.value in ({exclude_tags_str})
+    )
+    SELECT DISTINCT metadata 
+    FROM by_tag, json_each(tag) 
+    WHERE json_each.value in ({relevant_tags_str})
+    AND hexdigest NOT IN forbidden_ids
+    """
+
+    COUNT_OF_IMAGES_BY_TAG_QUERY = """
+    with by_tag as (
+        select hexdigest, json_extract(metadata, '$.tags') as tags
+        from image_metadata
+    )
+    SELECT json_each.value as tag, count(by_tag.hexdigest)
+    FROM by_tag, json_each(by_tag.tags)
+    GROUP BY json_each.value
+    """
+
     def __init__(self, root_directory: Path | str) -> None:
         super().__init__()
         self._root_directory = Path(root_directory)
@@ -214,9 +252,10 @@ class FileSystemImageRepository(ImageRepository):
             result = conn.execute(
                 self.METADATA_GET_QUERY.format(hexdigest=hexdigest)
             ).fetchone()
-            if result is None:
-                return None
-            return ImageMetadata.model_validate_json(result[0])
+
+        if result is None:
+            return None
+        return ImageMetadata.model_validate_json(result[0])
 
     @override
     def save_image(
@@ -261,11 +300,62 @@ class FileSystemImageRepository(ImageRepository):
             image.save(new_image_metadata.filepath, format="JPEG")
 
         # Save the (possibly updated) metadata to the database.
+        prepared_insertion_query = self.METADATA_INSERTION_QUERY.format(
+            hexdigest=new_image_metadata.hexdigest,
+            metadata=new_image_metadata.model_dump_json(),
+        )
+
         with sqlite3.connect(self.db_filepath) as conn:
-            prepared_insertion_query = self.METADATA_INSERTION_QUERY.format(
-                hexdigest=new_image_metadata.hexdigest,
-                metadata=new_image_metadata.model_dump_json(),
-            )
             conn.execute(prepared_insertion_query)
 
         return new_image_metadata
+
+    @override
+    def get_image_metadata_by_tag(
+        self,
+        tags: Collection[str] | None = None,
+        exclude_tags: Collection[str] | None = None,
+    ) -> list[ImageMetadata]:
+        """
+        Retrieve all images with at least one of the specified tags and none of the excluded tags.
+
+        If no tags are passed, then all images that are do not have an excluded tag are returned.
+        """
+        if tags is None:
+            tags = [tag for tag in self.get_count_of_images_by_tag().keys()]
+
+        relevant_tags_str = ", ".join([f"'{tag}'" for tag in tags])
+        exclude_tags_str = ", ".join([f"'{tag}'" for tag in exclude_tags])
+
+        prepared_query = self.METADATA_GET_BY_TAG_QUERY.format(
+            relevant_tags_str=relevant_tags_str,
+            exclude_tags_str=exclude_tags_str,
+        )
+
+        with sqlite3.connect(self.db_filepath) as conn:
+            results = conn.execute(prepared_query).fetchall()
+
+        return [ImageMetadata.model_validate_json(result[0]) for result in results]
+
+    @override
+    def get_count_of_images_by_tag(
+        self, tags: Collection[str] | None = None
+    ) -> dict[str, int]:
+        """
+        Retrieve the count of images for each tag in the repository.
+
+        If a collection of tags is provided, only the counts for those tags will be returned
+        (including zero counts for tags that are not present in the repository). If no tags
+        are provided, the counts for all tags in the repository will be returned.
+        """
+
+        with sqlite3.connect(self.db_filepath) as conn:
+            results = conn.execute(self.COUNT_OF_IMAGES_BY_TAG_QUERY).fetchall()
+
+        tag_count_dict = {tag: count for tag, count in results}
+        if tags is None:
+            distinct_tags = tag_count_dict.keys()
+        else:
+            distinct_tags = set(tags)
+
+        return {tag: tag_count_dict.get(tag, 0) for tag in distinct_tags}

@@ -170,3 +170,13 @@ def init(ctx: click.Context, component: str):
         console.print(
             f"{GREEN_CHECK} A sample shopping list has been created in the file {shopping_list_location}."
         )
+
+
+@cli_group.command(name="inventory")
+@click.pass_context
+def inventory(ctx: click.Context):
+    from curator.inventory import main
+
+    repository_location = ctx.obj["repository_location"]
+
+    main(repository_location)
