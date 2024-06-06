@@ -162,6 +162,11 @@ class ImageRepository(ABC):
     def get_image_metadata_by_tag(self, tags: Collection[str]) -> list[ImageMetadata]:
         raise NotImplementedError
 
+    def get_count_of_images_by_tag(
+        self, tags: Collection[str] | None
+    ) -> dict[str, int]:
+        raise NotImplementedError
+
 
 class FileSystemImageRepository(ImageRepository):
     """
@@ -207,6 +212,16 @@ class FileSystemImageRepository(ImageRepository):
     SELECT DISTINCT metadata 
     FROM by_tag, json_each(tag) 
     WHERE json_each.value in ({relevant_tags_str})
+    """
+
+    COUNT_OF_IMAGES_BY_TAG_QUERY = """
+    with by_tag as (
+        select ID, json_extract(metadata, '$.tags') as tags
+        from image_metadata
+    )
+    SELECT json_each.value as tag, count(by_tag.key)
+    FROM by_tag, json_each(by_tag.tags)
+    GROUP BY json_each.value
     """
 
     def __init__(self, root_directory: Path | str) -> None:
@@ -300,3 +315,27 @@ class FileSystemImageRepository(ImageRepository):
             results = conn.execute(prepared_query).fetchall()
 
         return [ImageMetadata.model_validate_json(result[0]) for result in results]
+
+    @override
+    def get_count_of_images_by_tag(
+        self, tags: Collection[str] | None
+    ) -> dict[str, int]:
+        """
+        Retrieve the count of images for each tag in the repository.
+
+        If a collection of tags is provided, only the counts for those tags will be returned
+        (including zero counts for tags that are not present in the repository). If no tags
+        are provided, the counts for all tags in the repository will be returned.
+        """
+        distinct_tags = set(tags)
+
+        with sqlite3.connect(self.db_filepath) as conn:
+            results = conn.execute(self.COUNT_OF_IMAGES_BY_TAG_QUERY).fetchall()
+
+        tag_count_dict = {tag: count for tag, count in results}
+        if tags is not None:
+            distinct_dags = tag_count_dict.keys()
+        else:
+            distinct_tags = set(tags)
+
+        return {tag: tag_count_dict.get(tag, 0) for tag in distinct_tags}
