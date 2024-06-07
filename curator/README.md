@@ -33,6 +33,9 @@ poetry run curator inventory
 
 Do note, however, that since images can have more than one tag, the total number of images in the repository will likely be different than the sum of images listed for each tag. In the future the `inventory` sub command will allow more custom options for displaying only some tags, or enforcing mutual-exclusivity between listed tags, but currently the only option is a full inventory of the entire repository.
 
+The reason for Curator's existence is images for machine learning. The primary way to access the images for ML purposes is through the `dataset` sub-command. This command takes a list of tags that it will interpret as the desired classes (labels) for an output dataset. It will scan the entire repository and create a new directory with one sub-directory for each tag specified. The images with each label will be in the sub-directory with the corresponding label. Since the output is expected to be used as a dataset for machine learning, any images that contain two or more of the specified labels will be assumed to be either ambiguous or mislabeled, and so will not be ingluded in the resulting dataset.
+
+For the file system repository, images will not be copied in full, but rather sym-linked to the image in the repositroy directory. This means that it is very light-weight to create many datasets from the images in the repository without taking up unreasonable space on disk.
 
 ## Key Concepts
 
