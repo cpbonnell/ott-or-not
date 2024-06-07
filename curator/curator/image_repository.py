@@ -221,7 +221,8 @@ class FileSystemImageRepository(ImageRepository):
     SELECT DISTINCT metadata 
     FROM by_tag, json_each(tag) 
     WHERE json_each.value in ({relevant_tags_str})
-    AND hexdigest NOT IN forbidden_ids
+    LEFT JOIN forbidden_ids f on by_tag.hexdigest = f.hexdigest
+    AND f.hexdigest is NULL
     """
 
     COUNT_OF_IMAGES_BY_TAG_QUERY = """
@@ -229,7 +230,7 @@ class FileSystemImageRepository(ImageRepository):
         select hexdigest, json_extract(metadata, '$.tags') as tags
         from image_metadata
     )
-    SELECT json_each.value as tag, count(by_tag.hexdigest)
+    SELECT json_each.value as tag, count(by_tag.hexdigest) as number_of_images
     FROM by_tag, json_each(by_tag.tags)
     GROUP BY json_each.value
     """
