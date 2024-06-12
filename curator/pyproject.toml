@@ -17,6 +17,8 @@ google-cloud-storage = "^2.16.0"
 pyyaml = "^6.0.1"
 python-dotenv = "^1.0.1"
 rich = "^13.7.1"
+alembic = "^1.13.1"
+sqlalchemy = "^2.0.30"
 
 
 [tool.poetry.group.dev.dependencies]
