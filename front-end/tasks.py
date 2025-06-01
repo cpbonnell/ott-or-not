@@ -1,4 +1,6 @@
-from invoke import task
+from invoke import task, Collection, Context
+import io
+import tomllib
 
 
 @task()
@@ -14,3 +16,16 @@ def build(ctx):
 @task(build)
 def up(ctx):
     ctx.run("docker compose up -d")
+
+
+# ===== Overhead =====
+
+# Look up other config defaults from pyproject.toml
+with open("pyproject.toml", "rb") as f:
+    pyproject = tomllib.load(f)
+
+other_config = pyproject["tool"].get("invoke")
+ns = Collection()
+
+if other_config:
+    ns.configure(other_config)
