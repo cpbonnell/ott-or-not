@@ -39,3 +39,7 @@ package-mode = false
 
 [tool.poetry.group.dev.dependencies]
 flet = {extras = ["all"], version = "0.28.3"}
+invoke = "^2.2.0"
+
+[tool.invoke.aws]
+profile = "oon"
