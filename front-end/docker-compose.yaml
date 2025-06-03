@@ -1,5 +1,6 @@
 services:
   front-end:
+    image: oon/version-flow:${TAG:-latest}
     build:
       context: .
     ports:
